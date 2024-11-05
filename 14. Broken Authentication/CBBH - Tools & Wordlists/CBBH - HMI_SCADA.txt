@@ -1,0 +1,7 @@
+admin
+advantech
+admin
+00000000	
+root	
+Admin
+

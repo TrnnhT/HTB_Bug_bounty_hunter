@@ -1,1 +1,2 @@
-# HTB_Bug_bounty_hunter
+Writeup of Bug_bounty_hunter HTB<br>
+

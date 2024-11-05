@@ -1,0 +1,31 @@
+- If you are reading this, I know you are not looking for any solution because this is the end of our trip, and the last 2 questions are easy to answer
+
+- I just want to say "Congratulation! After 20 modules (more than 250 sections) you made it". It took me 45 days to pass the course and make the writeup
+
+- This is my honor to guide you guys. Again "You made it! Great job"
+
+
+[Bug Bounty Programs]
+
+[Question 1] Which Bug Bounty Program part establishes expectations for behavior while participating in a bug bounty program?
+
+    - The main points of the "Bug Bounty Program Code of Conduct" are:
+
+        [+] Importance of Adherence: It emphasizes the significance of following the code of conduct or policy of each bug bounty program or platform. Violations of the code of conduct can impact a bug bounty hunter's reputation and consideration in future programs.
+
+        [+] Read and Understand: Bug bounty hunters are advised to spend considerable time reading and understanding the code of conduct. It serves as a guide for expected behavior and also enhances the effectiveness and success of bug report submissions.
+
+        [+] Professionalism and Technical Capability: To become an established bug bounty hunter, it is crucial to maintain a balance between professionalism and technical skills. Professional conduct enhances the reputation and trustworthiness of the bug bounty hunter.
+
+        [+] HackerOne's Code of Conduct: The recommendation is made to review HackerOne's Code of Conduct, which is likely a comprehensive document that covers guidelines and expectations for bug bounty hunters. Familiarizing oneself with such documents can provide valuable insights and ensure adherence to industry standards.   
+
+    [!] Answer: "Code of Conduct"
+
+
+[Writing a Good Report]
+
+[Question 2] Which base metric value of the base score considers that attackers can only exploit a vulnerability if they reside in the same physical or logical network as the target host/application?
+
+    - "Adjacent (A): Attackers can exploit this vulnerability only if they reside in the same physical or logical network (secure VPN included)."
+
+    [!] Answer: "Adjacent"

